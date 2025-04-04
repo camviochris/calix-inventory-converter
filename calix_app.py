@@ -32,6 +32,8 @@ if "device_lookup" not in st.session_state:
 
 # Step 1: Upload file and confirm header
 with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.header_confirmed):
+    if st.session_state.header_confirmed:
+        st.success("✅ Step 1 completed")
     file = st.file_uploader("Upload your .csv or .xlsx file", type=["csv", "xlsx"])
     df = None
 
@@ -57,7 +59,9 @@ st.markdown("\n\n")
 # Step 2: Collect device info
 if "df" in st.session_state:
     st.markdown("---")
-    st.header("🔧 Step 2: Add Devices to Convert")
+    step2_expander = st.expander("🔧 Step 2: Add Devices to Convert", expanded=len(st.session_state.devices) == 0)
+with step2_expander:
+    st.success("✅ Step 2 completed") if st.session_state.devices else None
     st.markdown("\n")
     with st.form("device_form"):
         device_name = st.text_input("Enter device model name ℹ️", help="Found in the Description column of your file")
@@ -132,7 +136,8 @@ if "df" in st.session_state:
                     st.rerun()
 
         st.markdown("---")
-        st.header("📦 Export Setup")
+        step3_expander = st.expander("📦 Step 3: Export Setup", expanded=True)
+with step3_expander:
         company_name = st.text_input("Enter your company name", help="This will be used to name the output file.")
         today_str = datetime.datetime.now().strftime("%Y%m%d")
         export_filename = f"{company_name}_{today_str}.csv" if company_name else "output.csv"
@@ -183,11 +188,11 @@ if "df" in st.session_state:
                     sn = str(row.get(sn_col, "NO VALUE")).strip()
                     fsan = str(row.get(fsan_col, "NO VALUE")).strip()
                     numbers = template.replace("<<MAC>>", mac).replace("<<SN>>", sn).replace("<<FSAN>>", fsan)
-                    output.write(f"{profile_type},{device_name},{numbers},{device['location']},IN_STOCK\n")
+                    output.write(f"{profile_type},{device_name},{numbers},{device['location']},UNASSIGNED\n")
 
             st.download_button("⬇️ Download File", data=output.getvalue(), file_name=export_filename, mime="text/csv")
         st.markdown("\nExport logic coming next...")
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.31</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.33</div>", unsafe_allow_html=True)
