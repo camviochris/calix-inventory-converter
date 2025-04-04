@@ -137,7 +137,7 @@ with step2_expander:
 
         st.markdown("---")
         if "company_name" not in st.session_state:
-    st.session_state.company_name = ""
+            st.session_state.company_name = ""
 
 step3_expander = st.expander("📦 Step 3: Export Setup", expanded=not st.session_state.get("export_complete", False))
 with step3_expander:
@@ -160,7 +160,7 @@ with step3_expander:
         # Export button and logic
         export_btn = st.button("📤 Export Converted File")
         error_output = io.StringIO()
-        error_output.write("device_name,missing_fields,mac,sn,fsan")
+        error_output.write("device_name,missing_fields,mac,sn,fsan\n")
         valid_rows = 0
         error_rows = 0
         if export_btn:
@@ -205,7 +205,7 @@ with step3_expander:
 
                     if missing_fields:
                         error_rows += 1
-                        error_output.write(f"{device_name}," + ";".join(missing_fields) + f",{mac},{sn},{fsan}")
+                        error_output.write(f"{device_name}," + ";".join(missing_fields) + f",{mac},{sn},{fsan}\n")
                         st.error(f"❌ Missing fields for device '{device_name}': {', '.join(missing_fields)}")
                         continue
                     valid_rows += 1
@@ -230,4 +230,4 @@ with step3_expander:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.42</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.43</div>", unsafe_allow_html=True)
