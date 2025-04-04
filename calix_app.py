@@ -31,7 +31,7 @@ with st.sidebar:
     if st.button("🔄 Start Over"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
-        st.experimental_rerun()
+        st.rerun()
 
 # Mapping
 ui_to_backend = {
@@ -56,7 +56,7 @@ with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.heade
                 df.columns = df.columns.str.strip()
                 st.session_state.df = df
                 st.session_state.header_confirmed = True
-                st.experimental_rerun()
+                sst.rerun()
         except Exception as e:
             st.error(f"Error reading file: {e}")
 
