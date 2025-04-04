@@ -107,8 +107,8 @@ with step2_expander:
             location = st.text_input("Enter custom location (must match Camvio EXACTLY)")
             st.warning("⚠️ This must exactly match the spelling/case in Camvio or it will fail.")
 
-        custom_ont_port = st.text_input("ONT_PORT ℹ️", value=default_port, help="The interface this ONT uses to connect (e.g., G1 or x1)")
-        custom_profile_id = st.text_input("ONT_PROFILE_ID ℹ️", value=default_profile_id or device_name, help="Provisioning profile used in your system")
+        custom_ont_port = st.text_input("ONT_PORT ℹ️", value=default_port, help="The interface this ONT uses to connect (e.g., G1 or x1)") if device_type == "ONT" else None
+        custom_profile_id = st.text_input("ONT_PROFILE_ID ℹ️", value=default_profile_id or device_name, help="Provisioning profile used in your system") if device_type == "ONT" else None
 
         # Ensure the profile ID is uppercase
         if custom_profile_id:
@@ -141,5 +141,4 @@ if st.session_state.devices:
                 st.session_state.devices.pop(i)
                 st.rerun()
 
-# Placeholder for future export functionality (Step 3)
-# We will work on Step 3 separately
+# Footer to close the script if step 3 is not yet defined
