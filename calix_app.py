@@ -51,53 +51,65 @@ with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.heade
 if st.session_state.header_confirmed:
     with st.expander("🛠️ Step 2: Add Devices to Convert", expanded=True):
         with st.form("device_form"):
-            device_name = st.text_input("Enter device model name ℹ️", help="Match the format used in the Description column.")
-            device_types = ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"]
-            selected_type = st.selectbox("What type of device is this?", device_types)
-            location = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom"])
-            if location == "Custom":
-                custom_location = st.text_input("Enter custom location (match Camvio exactly)")
-                st.warning("⚠️ This must match Camvio Web **exactly** or it will fail.")
-            else:
-                custom_location = location
+            st.markdown("### ➕ Add Device")
 
-            mapped_type_raw = device_profile_name_map.get(device_name.upper(), "")
-            template = device_numbers_template_map.get(device_name.upper(), "")
-            port_match = re.search(r"ONT_PORT=([^|]*)", template)
-            profile_match = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
+            # Input device model and type
+            device_name = st.text_input("Enter device model name ℹ️", help="Match what's found in the Description column")
+            selected_type = st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"])
 
-            default_port = port_match.group(1) if port_match else ""
-            default_profile = profile_match.group(1).upper() if profile_match else device_name.upper()
+            # Look up from mapping.py
+            if st.form_submit_button("🔍 Look Up Device"):
+                st.session_state.lookup_result = {
+                    "device_name": device_name,
+                    "device_type": device_profile_name_map.get(device_name.upper(), selected_type),
+                    "template": device_numbers_template_map.get(device_name.upper(), "")
+                }
 
-            mapped_to_ui = mapped_type_raw.replace("CX_", "") if "CX_" in mapped_type_raw else mapped_type_raw
-            show_warning = False
-            if mapped_type_raw and mapped_to_ui != selected_type:
-                show_warning = True
+            # Default values from lookup (if available)
+            data = st.session_state.get("lookup_result", {})
+            default_type = data.get("device_type", selected_type)
+            template = data.get("template", "")
+            default_port = re.search(r"ONT_PORT=([^|]*)", template)
+            default_profile = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
 
+            default_port = default_port.group(1) if default_port else ""
+            default_profile = default_profile.group(1).upper() if default_profile else device_name.upper()
+
+            # Show ONT-specific inputs
             if selected_type == "ONT":
                 ont_port = st.text_input("ONT_PORT", value=default_port)
                 ont_profile = st.text_input("ONT_PROFILE_ID", value=default_profile)
             else:
-                ont_port = ""
-                ont_profile = ""
+                ont_port, ont_profile = "", ""
 
-            if show_warning:
+            # Location selection with custom input
+            location = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom"])
+            if location == "Custom":
+                location = st.text_input("Enter custom location (must match Camvio exactly)")
+                st.warning("⚠️ This must match Camvio Web **exactly** or provisioning will fail.")
+
+            # Warning if type mismatch with mapping
+            expected_type = device_profile_name_map.get(device_name.upper(), "")
+            mapped_type_clean = expected_type.replace("CX_", "") if "CX_" in expected_type else expected_type
+            if expected_type and mapped_type_clean != selected_type:
                 st.warning(
-                    f"⚠️ This device is typically mapped as `{mapped_to_ui}`. "
-                    f"You selected `{selected_type}`. If you're using this differently, make sure provisioning is configured properly."
+                    f"⚠️ This device is typically mapped as `{mapped_type_clean}`. "
+                    f"You selected `{selected_type}`. Make sure your provisioning is properly configured."
                 )
 
+            # Add the device to session
             if st.form_submit_button("➕ Add Device"):
                 st.session_state.devices.append({
                     "device_name": device_name,
                     "device_type": selected_type,
-                    "location": custom_location,
+                    "location": location,
                     "ONT_PORT": ont_port,
                     "ONT_PROFILE_ID": ont_profile,
                     "ONT_MOMENTUM_PASSWORD": "NO VALUE"
                 })
                 st.success("✅ Device added successfully!")
                 st.rerun()
+
 
         if st.session_state.devices:
             st.subheader("Devices Selected:")
