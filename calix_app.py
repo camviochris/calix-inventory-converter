@@ -222,25 +222,19 @@ if "df" in st.session_state:
             st.session_state.export_complete = True
             st.rerun()
         st.markdown("""
-        <details>
-        <summary>📤 What to do next after export?</summary>
+<details>
+<summary>📤 What to do next after export?</summary>
 
-        After downloading your converted file:
-        1. ✅ <strong>Open the CSV and verify</strong> that all device formats look correct.<br>
-        2. 📦 <strong>Upload the file</strong> to your provisioning or inventory system.<br>
-        3. 🛠️ If any devices failed export, use the <strong>Error Log</strong> to correct values and re-upload.<br>
-        4. 💬 <strong>Need help?</strong> Contact Camvio Support if your provisioning setup needs a new device added.
+After downloading your converted file:
+1. ✅ <strong>Open the CSV and verify</strong> that all device formats look correct.<br>
+2. 📦 <strong>Upload the file</strong> to your provisioning or inventory system.<br>
+3. 🛠️ If any devices failed export, use the <strong>Error Log</strong> to correct values and re-upload.<br>
+4. 💬 <strong>Need help?</strong> Contact Camvio Support if your provisioning setup needs a new device added.
 
-        </details>
-        """, unsafe_allow_html=True)
-            st.markdown("""
-            After downloading your converted file:
-            1. ✅ **Open the CSV and verify** that all device formats look correct.
-            2. 📦 **Upload the file** to your provisioning or inventory system.
-            3. 🛠️ If any devices failed export, use the **Error Log** to correct values and re-upload.
-            4. 💬 **Need help?** Contact Camvio Support if your provisioning setup needs a new device added.
-            """)
+</details>
+""", unsafe_allow_html=True)
+            
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.46</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.47</div>", unsafe_allow_html=True)
