@@ -141,4 +141,3 @@ if st.session_state.devices:
                 st.session_state.devices.pop(i)
                 st.rerun()
 
-# Footer to close the script if step 3 is not yet defined
