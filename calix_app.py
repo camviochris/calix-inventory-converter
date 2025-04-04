@@ -138,4 +138,3 @@ if st.session_state.devices:
             if st.button("🗑️ Remove", key=f"remove_{i}"):
                 st.session_state.devices.pop(i)
                 st.rerun()
-
