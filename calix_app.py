@@ -130,3 +130,90 @@ if st.session_state.header_confirmed:
                 if st.button(f"❌ Remove", key=f"remove_{i}"):
                     st.session_state.devices.pop(i)
                     st.rerun()
+
+import io
+import datetime
+
+# --- STEP 3: Export Setup ---
+if st.session_state.df is not None and st.session_state.devices:
+    with st.expander("📦 Step 3: Export and Download File", expanded=True):
+        company = st.text_input("Enter your company name", key="company_name_input")
+        today = datetime.datetime.now().strftime("%Y%m%d")
+        filename = f"{company}_{today}.csv" if company else "calix_export.csv"
+
+        desc_col = next((c for c in st.session_state.df.columns if "description" in c.lower()), None)
+
+        st.subheader("📋 Export Summary")
+        for d in st.session_state.devices:
+            count = (
+                st.session_state.df[desc_col].astype(str).str.contains(d["device_name"], case=False).sum()
+                if desc_col else 0
+            )
+            st.markdown(
+                f"- **{d['device_name']}** → `{d['device_type']}` @ `{d['location']}` → `{count}` records"
+            )
+
+        export_btn = st.button("📤 Export & Download File")
+        if export_btn:
+            output = io.StringIO()
+            output.write("device_profile,device_name,device_numbers,inventory_location,inventory_status\n")
+            error_log = io.StringIO()
+            error_log.write("device_name,missing_fields,mac,sn,fsan\n")
+
+            mac_col = next((c for c in st.session_state.df.columns if "mac" in c.lower()), None)
+            sn_col = next((c for c in st.session_state.df.columns if "serial" in c.lower() or c.lower() == "sn"), None)
+            fsan_col = next((c for c in st.session_state.df.columns if "fsan" in c.lower()), None)
+
+            for device in st.session_state.devices:
+                df = st.session_state.df
+                matches = df[df[desc_col].astype(str).str.contains(device["device_name"], case=False, na=False)]
+
+                for _, row in matches.iterrows():
+                    mac = str(row.get(mac_col, "")).strip()
+                    sn = str(row.get(sn_col, "")).strip()
+                    fsan = str(row.get(fsan_col, "")).strip()
+
+                    missing = []
+                    if not mac: missing.append("MAC")
+                    if not sn: missing.append("SN")
+                    if not fsan: missing.append("FSAN")
+
+                    if missing:
+                        error_log.write(f"{device['device_name']},{';'.join(missing)},{mac},{sn},{fsan}\n")
+                        continue
+
+                    profile = {
+                        "ONT": "ONT",
+                        "ROUTER": "CX_ROUTER",
+                        "MESH": "CX_MESH",
+                        "SFP": "CX_SFP",
+                        "ENDPOINT": "GAM_COAX_ENDPOINT"
+                    }.get(device["device_type"], device["device_type"])
+
+                    if profile == "ONT":
+                        formatted = (
+                            f"MAC={mac}|SN={sn}|ONT_FSAN={fsan}|"
+                            f"ONT_ID=NO VALUE|ONT_NODENAME=NO VALUE|ONT_PORT={device['ONT_PORT']}|"
+                            f"ONT_PROFILE_ID={device['ONT_PROFILE_ID']}|ONT_MOMENTUM_PASSWORD={device['ONT_MOMENTUM_PASSWORD']}"
+                        )
+                    elif profile == "CX_ROUTER":
+                        formatted = f"MAC={mac}|SN={sn}|ROUTER_FSAN={fsan}"
+                    elif profile == "CX_MESH":
+                        formatted = f"MAC={mac}|SN={sn}|MESH_FSAN={fsan}"
+                    elif profile == "CX_SFP":
+                        formatted = f"MAC={mac}|SN={sn}|SIP_FSAN={fsan}"
+                    elif profile == "GAM_COAX_ENDPOINT":
+                        formatted = f"MAC={mac}|SN={sn}"
+                    else:
+                        formatted = f"MAC={mac}|SN={sn}|FSAN={fsan}"
+
+                    output.write(f"{profile},{device['device_name']},{formatted},{device['location']},UNASSIGNED\n")
+
+            st.download_button("⬇️ Download Converted File", data=output.getvalue(), file_name=filename, mime="text/csv")
+            error_content = error_log.getvalue()
+            if "missing_fields" not in error_content:
+                st.info("✅ All records exported successfully.")
+            else:
+                st.warning("⚠️ Some records were skipped due to missing fields.")
+                st.download_button("⚠️ Download Error Log", data=error_content, file_name="error_log.csv", mime="text/csv")
+
