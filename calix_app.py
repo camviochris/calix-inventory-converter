@@ -91,7 +91,11 @@ if "df" in st.session_state:
             st.warning("🚧 This device model name was not found in memory. You can still proceed as ONT by providing required settings.\n\nPlease provide the `ONT_PORT` and `ONT_PROFILE_ID` based on how it's setup in your system.\nIf this device is not in your Camvio inventory, it may fail provisioning. Please contact Camvio Support to add it.")
 
         if load_defaults and device_name in device_profile_name_map and mapped_type != device_type:
-            st.warning(f"⚠️ This device is typically identified as `{mapped_type}`. If you're using `{device_type}`, ensure your provisioning is setup and verified accordingly.")
+            st.warning(f"⚠️ This device is typically identified as `{mapped_type}`.
+
+Since you're using `{device_type}`, the system will still treat this as `{mapped_type}` behind the scenes for provisioning.
+
+Please verify that your provisioning is properly configured to handle this setup.")
 
         location = st.selectbox("Where should it be stored? ℹ️", ["WAREHOUSE", "Custom..."], help="Camvio must have this location EXACTLY as shown. Case and spelling matter.")
         if location == "Custom...":
@@ -149,9 +153,45 @@ if "df" in st.session_state:
         else:
             st.warning("Could not locate a Description column to match device names.")
 
-        # Placeholder for next: export button and logic
+        # Export button and logic
+        export_btn = st.button("📤 Export Converted File")
+        if export_btn:
+            output = io.StringIO()
+            output.write("device_profile,device_name,device_numbers,inventory_location,inventory_status\n")
+
+            desc_col = next((col for col in st.session_state.df.columns if 'description' in col.lower()), None)
+            mac_col = next((col for col in st.session_state.df.columns if 'mac' in col.lower()), None)
+            sn_col = next((col for col in st.session_state.df.columns if 'serial' in col.lower() or col.lower() == 'sn'), None)
+            fsan_col = next((col for col in st.session_state.df.columns if 'fsan' in col.lower()), None)
+
+            for device in st.session_state.devices:
+                device_name = device['device_name']
+                profile_type = device_profile_name_map.get(device_name, device['device_type'])
+                template = device_numbers_template_map.get(device_name, "MAC=<<MAC>>|SN=<<SN>>|FSAN=<<FSAN>>")
+
+                if profile_type == "ONT":
+                    template = f"MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=NO VALUE|ONT_NODENAME=NO VALUE|ONT_PORT={device['ONT_PORT']}|ONT_PROFILE_ID={device['ONT_PROFILE_ID']}|ONT_MOMENTUM_PASSWORD={device['ONT_MOMENTUM_PASSWORD']}"
+                elif profile_type == "CX_ROUTER":
+                    template = f"MAC=<<MAC>>|SN=<<SN>>|ROUTER_FSAN=<<FSAN>>"
+                elif profile_type == "CX_MESH":
+                    template = f"MAC=<<MAC>>|SN=<<SN>>|MESH_FSAN=<<FSAN>>"
+                elif profile_type == "CX_SFP":
+                    template = f"MAC=<<MAC>>|SN=<<SN>>|SIP_FSAN=<<FSAN>>"
+                elif profile_type == "GAM_COAX_ENDPOINT":
+                    template = f"MAC=<<MAC>>|SN=<<SN>>"
+
+                matches = st.session_state.df[st.session_state.df[desc_col].astype(str).str.contains(device_name, case=False, na=False)]
+
+                for _, row in matches.iterrows():
+                    mac = str(row.get(mac_col, "NO VALUE")).strip()
+                    sn = str(row.get(sn_col, "NO VALUE")).strip()
+                    fsan = str(row.get(fsan_col, "NO VALUE")).strip()
+                    numbers = template.replace("<<MAC>>", mac).replace("<<SN>>", sn).replace("<<FSAN>>", fsan)
+                    output.write(f"{profile_type},{device_name},{numbers},{device['location']},IN_STOCK\n")
+
+            st.download_button("⬇️ Download File", data=output.getvalue(), file_name=export_filename, mime="text/csv")
         st.markdown("\nExport logic coming next...")
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.26</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.29</div>", unsafe_allow_html=True)
