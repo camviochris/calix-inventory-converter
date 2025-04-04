@@ -43,7 +43,7 @@ with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.heade
                 df.columns = df.columns.str.strip()
                 st.session_state.df = df
                 st.session_state.header_confirmed = True
-                st.experimental_rerun()
+                st.rerun()
         except Exception as e:
             st.error(f"Error reading file: {e}")
 
@@ -111,7 +111,7 @@ if st.session_state.header_confirmed:
                 with col2:
                     if st.button("🗑️ Remove", key=f"remove_{idx}"):
                         st.session_state.devices.pop(idx)
-                        st.experimental_rerun()
+                        st.rerun()
 
 # --- Step 3: Export ---
 if st.session_state.df is not None and st.session_state.devices:
