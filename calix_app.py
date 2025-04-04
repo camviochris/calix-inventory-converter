@@ -1,3 +1,19 @@
+# ==============================================
+# GitHub Commit Template
+# ----------------------------------------------
+# Commit Summary:
+# Auto-populate ONT settings from mappings.py
+# Add ability to delete added devices
+#
+# Commit Description:
+# - Pulls ONT defaults (PORT, PROFILE_ID, MOMENTUM_PASSWORD) directly
+#   from mappings.py when a device model is entered
+# - Auto-fills ONT override fields for customer review/edit
+# - Prevents hardcoded G1 values or blank templates
+# - Adds a '🗑️ Remove' button next to each added device
+# - Updated footer version to v2.12
+# ==============================================
+
 import streamlit as st
 import pandas as pd
 import re
@@ -83,10 +99,16 @@ if "df" in st.session_state:
 
     if st.session_state.devices:
         st.write("### Devices Selected:")
-        for d in st.session_state.devices:
-            st.write(f"🔹 {d['device_name']} → {d['device_type']} @ {d['location']}")
-            if d["device_type"] == "ONT":
-                st.code(f"ONT_PORT: {d['ONT_PORT']}\nONT_PROFILE_ID: {d['ONT_PROFILE_ID']}\nONT_MOMENTUM_PASSWORD: {d['ONT_MOMENTUM_PASSWORD']}", language="text")
+        for i, d in enumerate(st.session_state.devices):
+            cols = st.columns([5, 1])
+            with cols[0]:
+                st.write(f"🔹 {d['device_name']} → {d['device_type']} @ {d['location']}")
+                if d["device_type"] == "ONT":
+                    st.code(f"ONT_PORT: {d['ONT_PORT']}\nONT_PROFILE_ID: {d['ONT_PROFILE_ID']}\nONT_MOMENTUM_PASSWORD: {d['ONT_MOMENTUM_PASSWORD']}", language="text")
+            with cols[1]:
+                if st.button("🗑️ Remove", key=f"remove_{i}"):
+                    st.session_state.devices.pop(i)
+                    st.experimental_rerun()
 
 # Step 3: Process and Output
 if st.session_state.devices:
@@ -121,7 +143,6 @@ if st.session_state.devices:
                 st.warning(f"⚠️ Device '{name}' not in template/profile map. Skipping.")
                 continue
 
-            # Customize ONT template if needed
             if dev["device_type"] == "ONT":
                 if "<<ONT_PORT>>" in template or "ONT_PORT=" in template:
                     template = re.sub(r"ONT_PORT=[^|]*", f"ONT_PORT={dev['ONT_PORT']}", template)
@@ -158,4 +179,4 @@ if st.session_state.devices:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.11</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.12</div>", unsafe_allow_html=True)
