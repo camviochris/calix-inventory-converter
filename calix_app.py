@@ -57,11 +57,11 @@ if uploaded_file:
 
             st.success("Header row confirmed. Continue with classification.")
 
-            # Allow user to select which columns match known types
-            description_col = st.selectbox("Select Description column", df.columns, index=find_column(df.columns, [r'description', r'product description', r'item description']) or 0)
-            serial_col = st.selectbox("Select Serial Number column", df.columns, index=find_column(df.columns, [r'serial', r'sn']) or 0)
-            mac_col = st.selectbox("Select MAC Address column", df.columns, index=find_column(df.columns, [r'mac']) or 0)
-            fsan_col = st.selectbox("Select FSAN column (if any)", ["None"] + list(df.columns))
+            # Let user manually select columns
+            description_col = st.selectbox("Select Description column", df.columns.tolist())
+            serial_col = st.selectbox("Select Serial Number column", df.columns.tolist())
+            mac_col = st.selectbox("Select MAC Address column", df.columns.tolist())
+            fsan_col = st.selectbox("Select FSAN column (if any)", ["None"] + df.columns.tolist())
 
             df["Device"] = df[description_col].astype(str).str.strip()
             unique_devices = df["Device"].dropna().unique()
