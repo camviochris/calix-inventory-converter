@@ -111,4 +111,5 @@ with st.expander("🔧 Step 2: Add Devices to Convert", expanded=True):
             with cols[1]:
                 if st.button("🗑️ Remove", key=f"remove_{i}"):
                     st.session_state.devices.pop(i)
-                    st.experimental_rerun()
+                    st.rerun()
+
