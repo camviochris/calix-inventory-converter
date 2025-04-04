@@ -2,13 +2,14 @@
 # GitHub Commit Template
 # ----------------------------------------------
 # Commit Summary:
-# Add company name input and device count summary before export
+# Improve UX flow and clarify export instructions
 #
 # Commit Description:
-# - Adds input for Company Name to use in export filename
-# - Displays device count grouped by type before export
-# - Prepares next steps for export logic
-# - Footer updated to v2.24
+# - Shows a persistent privacy banner for customer reassurance
+# - Collapses steps automatically once completed
+# - Adds success messages and inline confirmations
+# - Includes a clear next-steps expander after export
+# - Ensures version and commit tracking is up to date
 # ==============================================
 
 import streamlit as st
@@ -21,6 +22,7 @@ from mappings import device_profile_name_map, device_numbers_template_map
 
 st.set_page_config(page_title="Calix Inventory Import", layout="wide")
 st.title("📥 Calix Inventory Import Tool")
+st.info("🔒 This tool processes everything in-memory and does **not** store any files or customer data.", icon="🔐")
 
 # Session state
 if "devices" not in st.session_state:
@@ -136,11 +138,13 @@ with step2_expander:
                     st.rerun()
 
         st.markdown("---")
-        step3_expander = st.expander("📦 Step 3: Export Setup", expanded=True)
+        if "company_name" not in st.session_state:
+            st.session_state.company_name = ""
+        step3_expander = st.expander("📦 Step 3: Export Setup", expanded=not st.session_state.get("export_complete", False))
 with step3_expander:
-        company_name = st.text_input("Enter your company name", help="This will be used to name the output file.")
+        st.session_state.company_name = st.text_input("Enter your company name", value=st.session_state.company_name, help="This will be used to name the output file.")
         today_str = datetime.datetime.now().strftime("%Y%m%d")
-        export_filename = f"{company_name}_{today_str}.csv" if company_name else "output.csv"
+        export_filename = f"{st.session_state.company_name}_{today_str}.csv" if st.session_state.company_name else "output.csv"
 
         # Device count summary
         st.subheader("📊 Device Count Summary")
@@ -156,6 +160,10 @@ with step3_expander:
 
         # Export button and logic
         export_btn = st.button("📤 Export Converted File")
+        error_output = io.StringIO()
+        error_output.write("device_name,missing_fields,mac,sn,fsan")
+        valid_rows = 0
+        error_rows = 0
         if export_btn:
             output = io.StringIO()
             output.write("device_profile,device_name,device_numbers,inventory_location,inventory_status\n")
@@ -184,15 +192,43 @@ with step3_expander:
                 matches = st.session_state.df[st.session_state.df[desc_col].astype(str).str.contains(device_name, case=False, na=False)]
 
                 for _, row in matches.iterrows():
-                    mac = str(row.get(mac_col, "NO VALUE")).strip()
-                    sn = str(row.get(sn_col, "NO VALUE")).strip()
-                    fsan = str(row.get(fsan_col, "NO VALUE")).strip()
+                    mac = str(row.get(mac_col, "")).strip()
+                    sn = str(row.get(sn_col, "")).strip()
+                    fsan = str(row.get(fsan_col, "")).strip()
+
+                    missing_fields = []
+                    if not mac or mac.upper() == "NO VALUE":
+                        missing_fields.append("MAC")
+                    if not sn or sn.upper() == "NO VALUE":
+                        missing_fields.append("Serial Number")
+                    if not fsan or fsan.upper() == "NO VALUE":
+                        missing_fields.append("FSAN")
+
+                    if missing_fields:
+                        error_rows += 1
+                        error_output.write(f"{device_name}," + ";".join(missing_fields) + f",{mac},{sn},{fsan}")
+                        st.error(f"❌ Missing fields for device '{device_name}': {', '.join(missing_fields)}")
+                        continue
+                    valid_rows += 1
                     numbers = template.replace("<<MAC>>", mac).replace("<<SN>>", sn).replace("<<FSAN>>", fsan)
                     output.write(f"{profile_type},{device_name},{numbers},{device['location']},UNASSIGNED\n")
 
             st.download_button("⬇️ Download File", data=output.getvalue(), file_name=export_filename, mime="text/csv")
-        st.markdown("\nExport logic coming next...")
+            st.success("✅ Export complete! Please download the file and follow the post-export instructions below.")
+            if error_rows > 0:
+                st.download_button("⚠️ Download Error Log", data=error_output.getvalue(), file_name="error_log.csv", mime="text/csv")
+            st.info("Check the error log for any records that were skipped due to missing MAC, SN, or FSAN values.")
+            st.session_state.export_complete = True
+            st.rerun()
+        with st.expander("📤 What to do next after export?"):
+            st.markdown("""
+            After downloading your converted file:
+            1. ✅ **Open the CSV and verify** that all device formats look correct.
+            2. 📦 **Upload the file** to your provisioning or inventory system.
+            3. 🛠️ If any devices failed export, use the **Error Log** to correct values and re-upload.
+            4. 💬 **Need help?** Contact Camvio Support if your provisioning setup needs a new device added.
+            """)
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.33</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.40</div>", unsafe_allow_html=True)
