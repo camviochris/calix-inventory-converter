@@ -143,3 +143,14 @@ if st.session_state.step_1_complete and st.session_state.df is not None:
     st.session_state.serial_col = serial_col
     st.session_state.mac_col = mac_col
     st.session_state.fsan_col = fsan_col if fsan_col != "None" else None
+
+
+
+    st.markdown("---")
+st.markdown(
+    "<div style='text-align: right; font-size: 0.75em; color: gray;'>"
+    "Last updated: 2025-04-03 &nbsp; • &nbsp; Rev: v1.32"
+    "</div>",
+    unsafe_allow_html=True
+)
+
