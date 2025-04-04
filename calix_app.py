@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
 import re
-import io
 import datetime
-from collections import Counter
 from mappings import device_profile_name_map, device_numbers_template_map
 
 st.set_page_config(page_title="Calix Inventory Import", layout="wide")
