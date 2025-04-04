@@ -30,7 +30,7 @@ if "custom_location" not in st.session_state:
 with st.sidebar:
     if st.button("🔁 Start Over"):
         st.session_state.clear()
-        st.experimental_rerun()
+        st.rerun()
 
 # -----------------------
 # Step 1: File Upload
