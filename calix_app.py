@@ -79,7 +79,7 @@ if "df" in st.session_state:
         mapped_type = device_profile_name_map.get(device_name)
         default_index = device_types.index(mapped_type) if mapped_type in device_types else 0
         selected_index = st.selectbox("What type of device is this?", device_types, index=default_index if load_defaults else 0, key="device_type_selector")
-        device_type = device_types[selected_index]
+        device_type = selected_index if isinstance(selected_index, str) else device_types[default_index]
 
         # Only show warning if type differs AND the lookup just happened
         if load_defaults and device_name in device_profile_name_map and mapped_type != device_type:
@@ -126,4 +126,4 @@ if "df" in st.session_state:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.19</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.20</div>", unsafe_allow_html=True)
