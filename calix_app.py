@@ -125,7 +125,8 @@ if st.session_state.header_confirmed:
                     st.code(f"ONT_PORT: {d['ONT_PORT']}\nONT_PROFILE_ID: {d['ONT_PROFILE_ID']}\nONT_MOMENTUM_PASSWORD: NO VALUE")
                 if st.button(f"❌ Remove", key=f"remove_{i}"):
                     st.session_state.devices.pop(i)
-                    st.experimental_rerun()
+                    st.rerun()
+
 
 # Footer
 st.markdown("---")
