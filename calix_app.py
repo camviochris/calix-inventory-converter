@@ -59,7 +59,7 @@ with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.heade
 st.markdown("\n\n")
 
 # Step 2: Collect device info
-step2_expander = st.expander("🔧 Step 2: Add Devices to Convert", expanded=len(st.session_state.devices) == 0)
+step2_expander = st.expander("🔧 Step 2: Add Devices to Convert", expanded=True)
 with step2_expander:
     if st.session_state.devices:
         st.success("✅ Step 2 completed")
@@ -117,8 +117,8 @@ with step2_expander:
                 "device_name": device_name.strip(),
                 "device_type": device_type,
                 "location": location.strip(),
-                "ONT_PORT": custom_ont_port.strip(),
-                "ONT_PROFILE_ID": custom_profile_id.strip(),
+                "ONT_PORT": custom_ont_port.strip() if device_type == "ONT" else "",
+                "ONT_PROFILE_ID": custom_profile_id.strip() if device_type == "ONT" else "",
                 "ONT_MOMENTUM_PASSWORD": "NO VALUE"
             })
 
@@ -238,4 +238,4 @@ After downloading your converted file:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.48</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.50</div>", unsafe_allow_html=True)
