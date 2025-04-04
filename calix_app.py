@@ -38,7 +38,22 @@ if "df" in st.session_state:
     st.header("🔧 Step 2: Add Devices to Convert")
     with st.form("device_form"):
         device_name = st.text_input("Enter device model name (as found in Description column)")
-        device_type = st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"])
+        default_type = "ONT"
+        default_port = ""
+        default_profile_id = ""
+        default_password = "no value"
+
+        if device_name in device_profile_name_map:
+            default_type = device_profile_name_map[device_name]
+            template = device_numbers_template_map.get(device_name, "")
+            match_port = re.search(r"ONT_PORT=([^|]*)", template)
+            match_profile = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
+            match_pass = re.search(r"ONT_MOMENTUM_PASSWORD=([^|]*)", template)
+            default_port = match_port.group(1) if match_port else ""
+            default_profile_id = match_profile.group(1) if match_profile else ""
+            default_password = match_pass.group(1) if match_pass else "no value"
+
+        device_type = st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"], index=["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"].index(default_type))
         location = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom..."])
         if location == "Custom...":
             location = st.text_input("Enter custom location (must match Camvio EXACTLY)")
@@ -47,12 +62,12 @@ if "df" in st.session_state:
         # Show default values for ONT customization
         custom_ont_port = ""
         custom_profile_id = ""
-        custom_password = "no value"
+        custom_password = ""
         if device_type == "ONT":
             st.markdown("#### Customize ONT Settings (optional)")
-            custom_ont_port = st.text_input("ONT_PORT", value="G1")
-            custom_profile_id = st.text_input("ONT_PROFILE_ID", value=device_name)
-            custom_password = st.text_input("ONT_MOMENTUM_PASSWORD", value="no value")
+            custom_ont_port = st.text_input("ONT_PORT", value=default_port)
+            custom_profile_id = st.text_input("ONT_PROFILE_ID", value=default_profile_id or device_name)
+            custom_password = st.text_input("ONT_MOMENTUM_PASSWORD", value=default_password)
 
         add_device = st.form_submit_button("➕ Add Device")
 
@@ -143,4 +158,4 @@ if st.session_state.devices:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.10</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.11</div>", unsafe_allow_html=True)
