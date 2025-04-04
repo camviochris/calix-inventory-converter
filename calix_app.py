@@ -1,26 +1,22 @@
 import streamlit as st
 import pandas as pd
-import re
 import io
 import datetime
-from collections import Counter
 from mappings import device_profile_name_map, device_numbers_template_map
-
-st.set_page_config(page_title="Calix Inventory Import", layout="wide")
-st.title("📥 Calix Inventory Import Tool")
-st.info("🔒 This tool processes everything in-memory and does **not** store any files or customer data.", icon="🔐")
 
 # Session state initialization
 if "devices" not in st.session_state:
     st.session_state.devices = []
 if "header_confirmed" not in st.session_state:
     st.session_state.header_confirmed = False
-if "device_lookup" not in st.session_state:
-    st.session_state.device_lookup = {}
-if "custom_ont_port" not in st.session_state:
-    st.session_state.custom_ont_port = ""
-if "custom_profile_id" not in st.session_state:
-    st.session_state.custom_profile_id = ""
+if "df" not in st.session_state:
+    st.session_state.df = None
+if "company_name" not in st.session_state:
+    st.session_state.company_name = ""
+
+st.set_page_config(page_title="Calix Inventory Import", layout="wide")
+st.title("📥 Calix Inventory Import Tool")
+st.info("🔒 This tool processes everything in-memory and does **not** store any files or customer data.", icon="🔐")
 
 # Step 1: Upload file and confirm header
 with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.header_confirmed):
@@ -45,9 +41,6 @@ with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.heade
         except Exception as e:
             st.error(f"Error reading file: {e}")
 
-# Spacer before Step 2
-st.markdown("\n\n")
-
 # Step 2: Collect device info
 step2_expander = st.expander("🔧 Step 2: Add Devices to Convert", expanded=True)
 with step2_expander:
@@ -66,45 +59,36 @@ with step2_expander:
 
         if load_defaults:
             st.session_state.device_lookup = {"device_name": device_name, "warning_shown": False}
-            # Case-insensitive matching
-            if device_name.strip().upper() in [d.upper() for d in device_profile_name_map]:
+            if device_name in device_profile_name_map:
                 device_found = True
-                default_type = device_profile_name_map[device_name.strip().upper()]
+                default_type = device_profile_name_map[device_name]
                 template = device_numbers_template_map.get(device_name, "")
                 match_port = re.search(r"ONT_PORT=([^|]*)", template)
                 match_profile = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
                 default_port = match_port.group(1) if match_port else ""
                 default_profile_id = match_profile.group(1) if match_profile else ""
 
-            # Store the ONT_PORT and ONT_PROFILE_ID to session state
-            if default_type == "ONT":
-                st.session_state.custom_ont_port = default_port
-                st.session_state.custom_profile_id = default_profile_id.upper() if default_profile_id else ""
-
         device_types = ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"]
         mapped_type = device_profile_name_map.get(device_name)
         default_index = device_types.index(mapped_type) if mapped_type in device_types else 0
-        selected_index = st.selectbox("What type of device is this? ℹ️", device_types, index=default_index if mapped_type else 0, key="device_type_selector", help="Make sure this matches how your system provisions this device")
+        selected_index = st.selectbox("What type of device is this? ℹ️", device_types, index=default_index if load_defaults else 0, key="device_type_selector", help="Make sure this matches how your system provisions this device")
         device_type = selected_index if isinstance(selected_index, str) else device_types[default_index]
 
         # If device not found and selected as ONT
         if load_defaults and not device_found and device_type == "ONT":
-            st.warning(f"🚧 This device model name '{device_name}' was not found in memory. You can still proceed as ONT by providing required settings.\n\nPlease provide the `ONT_PORT` and `ONT_PROFILE_ID` based on how it's setup in your system. If this device is not in your Camvio inventory, it may fail provisioning. Please contact Camvio Support to add it.")
-
-        if load_defaults and device_name in device_profile_name_map and mapped_type != device_type and mapped_type == "ONT":
-            st.warning(f"⚠️ This device is typically identified as `{mapped_type}`. Since you're using `{device_type}`, the system will still treat this as `{mapped_type}` behind the scenes for provisioning. Please verify that your provisioning is properly configured to handle this setup.")
+            st.warning("🚧 This device model name was not found in memory. You can still proceed as ONT by providing required settings.\n\nPlease provide the `ONT_PORT` and `ONT_PROFILE_ID` based on how it's setup in your system.\nIf this device is not in your Camvio inventory, it may fail provisioning. Please contact Camvio Support to add it.")
 
         location = st.selectbox("Where should it be stored? ℹ️", ["WAREHOUSE", "Custom..."], help="Camvio must have this location EXACTLY as shown. Case and spelling matter.")
         if location == "Custom...":
             location = st.text_input("Enter custom location (must match Camvio EXACTLY)")
             st.warning("⚠️ This must exactly match the spelling/case in Camvio or it will fail.")
 
-        custom_ont_port = st.session_state.custom_ont_port if device_type == "ONT" else ""
-        custom_profile_id = st.session_state.custom_profile_id if device_type == "ONT" else ""
+        custom_ont_port = ""
+        custom_profile_id = ""
         if device_type == "ONT":
             st.markdown("#### Customize ONT Settings (required for custom devices)")
-            custom_ont_port = st.text_input("ONT_PORT ℹ️", value=custom_ont_port, help="The interface this ONT uses to connect (e.g., G1 or x1)")
-            custom_profile_id = st.text_input("ONT_PROFILE_ID ℹ️", value=custom_profile_id or device_name, help="Provisioning profile used in your system")
+            custom_ont_port = st.text_input("ONT_PORT ℹ️", value=default_port, help="The interface this ONT uses to connect (e.g., G1 or x1)")
+            custom_profile_id = st.text_input("ONT_PROFILE_ID ℹ️", value=default_profile_id or device_name, help="Provisioning profile used in your system")
 
         add_device = st.form_submit_button("➕ Add Device")
 
@@ -113,8 +97,8 @@ with step2_expander:
                 "device_name": device_name.strip(),
                 "device_type": device_type,
                 "location": location.strip(),
-                "ONT_PORT": st.session_state.custom_ont_port.strip() if device_type == "ONT" else "",
-                "ONT_PROFILE_ID": custom_profile_id.strip().upper() if device_type == "ONT" else "",
+                "ONT_PORT": custom_ont_port.strip() if device_type == "ONT" else "",
+                "ONT_PROFILE_ID": custom_profile_id.strip() if device_type == "ONT" else "",
                 "ONT_MOMENTUM_PASSWORD": "NO VALUE"
             })
 
@@ -132,11 +116,8 @@ with step2_expander:
                     st.session_state.devices.pop(i)
                     st.rerun()
 
-        st.markdown("---")
-        if "company_name" not in st.session_state:
-            st.session_state.company_name = ""
-
-step3_expander = st.expander("📦 Step 3: Export Setup", expanded=True)  # Step 3 will stay expanded
+# Step 3: Export
+step3_expander = st.expander("📦 Step 3: Export Setup", expanded=True)
 if "df" in st.session_state:
     with step3_expander:
         company_input = st.text_input("Enter your company name", value=st.session_state.get("company_name", ""), help="This will be used to name the output file.")
@@ -234,4 +215,4 @@ After downloading your converted file:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.58</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.50</div>", unsafe_allow_html=True)
