@@ -1,17 +1,3 @@
-# ==============================================
-# GitHub Commit Template
-# ----------------------------------------------
-# Commit Summary:
-# Improve UX flow and clarify export instructions
-#
-# Commit Description:
-# - Shows a persistent privacy banner for customer reassurance
-# - Collapses steps automatically once completed
-# - Adds success messages and inline confirmations
-# - Includes a clear next-steps expander after export
-# - Ensures version and commit tracking is up to date
-# ==============================================
-
 import streamlit as st
 import pandas as pd
 import re
@@ -85,10 +71,15 @@ with step2_expander:
                 default_port = match_port.group(1) if match_port else ""
                 default_profile_id = match_profile.group(1) if match_profile else ""
 
+            # Store the ONT_PORT and ONT_PROFILE_ID values in session state
+            if default_type == "ONT":
+                st.session_state.custom_ont_port = default_port
+                st.session_state.custom_profile_id = default_profile_id
+
         device_types = ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"]
         mapped_type = device_profile_name_map.get(device_name)
         default_index = device_types.index(mapped_type) if mapped_type in device_types else 0
-        selected_index = st.selectbox("What type of device is this? ℹ️", device_types, index=default_index if load_defaults else 0, key="device_type_selector", help="Make sure this matches how your system provisions this device")
+        selected_index = st.selectbox("What type of device is this? ℹ️", device_types, index=default_index if mapped_type else 0, key="device_type_selector", help="Make sure this matches how your system provisions this device")
         device_type = selected_index if isinstance(selected_index, str) else device_types[default_index]
 
         # If device not found and selected as ONT
@@ -103,12 +94,12 @@ with step2_expander:
             location = st.text_input("Enter custom location (must match Camvio EXACTLY)")
             st.warning("⚠️ This must exactly match the spelling/case in Camvio or it will fail.")
 
-        custom_ont_port = ""
-        custom_profile_id = ""
+        custom_ont_port = st.session_state.custom_ont_port if device_type == "ONT" else ""
+        custom_profile_id = st.session_state.custom_profile_id if device_type == "ONT" else ""
         if device_type == "ONT":
             st.markdown("#### Customize ONT Settings (required for custom devices)")
-            custom_ont_port = st.text_input("ONT_PORT ℹ️", value=default_port, help="The interface this ONT uses to connect (e.g., G1 or x1)")
-            custom_profile_id = st.text_input("ONT_PROFILE_ID ℹ️", value=default_profile_id or device_name, help="Provisioning profile used in your system")
+            custom_ont_port = st.text_input("ONT_PORT ℹ️", value=custom_ont_port, help="The interface this ONT uses to connect (e.g., G1 or x1)")
+            custom_profile_id = st.text_input("ONT_PROFILE_ID ℹ️", value=custom_profile_id or device_name, help="Provisioning profile used in your system")
 
         add_device = st.form_submit_button("➕ Add Device")
 
@@ -117,7 +108,7 @@ with step2_expander:
                 "device_name": device_name.strip(),
                 "device_type": device_type,
                 "location": location.strip(),
-                "ONT_PORT": custom_ont_port.strip() if device_type == "ONT" else "",
+                "ONT_PORT": st.session_state.custom_ont_port.strip() if device_type == "ONT" else "",
                 "ONT_PROFILE_ID": custom_profile_id.strip() if device_type == "ONT" else "",
                 "ONT_MOMENTUM_PASSWORD": "NO VALUE"
             })
@@ -234,8 +225,7 @@ After downloading your converted file:
 
 </details>
 """, unsafe_allow_html=True)
-            
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.50</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.57</div>", unsafe_allow_html=True)
