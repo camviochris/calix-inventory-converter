@@ -2,12 +2,13 @@
 # GitHub Commit Template
 # ----------------------------------------------
 # Commit Summary:
-# Add inline ℹ️ tooltips for user guidance
+# Improve layout spacing and scroll performance
 #
 # Commit Description:
-# - Adds small explanatory tooltips next to key fields using ℹ️ icon
-# - Covers header row, device name, device type, location, ONT settings
-# - Footer updated to v2.22
+# - Added layout="wide" for more screen space
+# - Added spacing breaks between major steps
+# - Fixes scroll/rendering issues on forms with lots of content
+# - Footer updated to v2.23
 # ==============================================
 
 import streamlit as st
@@ -17,7 +18,7 @@ import io
 import datetime
 from mappings import device_profile_name_map, device_numbers_template_map
 
-st.set_page_config(page_title="Calix Inventory Import", layout="centered")
+st.set_page_config(page_title="Calix Inventory Import", layout="wide")
 st.title("📥 Calix Inventory Import Tool")
 
 # Session state
@@ -49,10 +50,14 @@ with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.heade
         except Exception as e:
             st.error(f"Error reading file: {e}")
 
+# Spacer before Step 2
+st.markdown("\n\n")
+
 # Step 2: Collect device info
 if "df" in st.session_state:
     st.markdown("---")
     st.header("🔧 Step 2: Add Devices to Convert")
+    st.markdown("\n")
     with st.form("device_form"):
         device_name = st.text_input("Enter device model name ℹ️", help="Found in the Description column of your file")
         load_defaults = st.form_submit_button("🔍 Look Up Device")
@@ -112,6 +117,7 @@ if "df" in st.session_state:
             })
 
     if st.session_state.devices:
+        st.markdown("\n")
         st.write("### Devices Selected:")
         for i, d in enumerate(st.session_state.devices):
             cols = st.columns([5, 1])
@@ -126,4 +132,4 @@ if "df" in st.session_state:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.22</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.23</div>", unsafe_allow_html=True)
