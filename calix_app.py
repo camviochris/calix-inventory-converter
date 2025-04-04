@@ -2,13 +2,13 @@
 # GitHub Commit Template
 # ----------------------------------------------
 # Commit Summary:
-# Add warning when selected device type differs from mapping.py
+# Improve step 1 auto-collapse + clear mismatch warning on type update
 #
 # Commit Description:
-# - Shows an advisory warning if selected type (e.g. ROUTER) differs
-#   from mapped type (e.g. ONT) in mappings.py
-# - Reminds user to verify their provisioning setup before continuing
-# - Updated footer version to v2.16
+# - Step 1 now immediately collapses after setting the header
+# - Clears mismatch warning when device type is updated after lookup
+# - Maintains custom override behavior for user-specified settings
+# - Updated footer version to v2.17
 # ==============================================
 
 import streamlit as st
@@ -26,6 +26,8 @@ if "devices" not in st.session_state:
     st.session_state.devices = []
 if "header_confirmed" not in st.session_state:
     st.session_state.header_confirmed = False
+if "device_lookup" not in st.session_state:
+    st.session_state.device_lookup = {}
 
 # Step 1: Upload file and confirm header
 with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.header_confirmed):
@@ -44,7 +46,7 @@ with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.heade
                 df.columns = df.columns.str.strip()
                 st.session_state.df = df
                 st.session_state.header_confirmed = True
-                st.success("✅ Header row set. You may now continue below.")
+                st.experimental_rerun()
         except Exception as e:
             st.error(f"Error reading file: {e}")
 
@@ -62,6 +64,7 @@ if "df" in st.session_state:
         default_password = "no value"
 
         if load_defaults:
+            st.session_state.device_lookup = {"device_name": device_name, "warning_shown": False}
             if device_name in device_profile_name_map:
                 default_type = device_profile_name_map[device_name]
                 template = device_numbers_template_map.get(device_name, "")
@@ -73,13 +76,14 @@ if "df" in st.session_state:
                 default_password = match_pass.group(1) if match_pass else "no value"
 
         device_types = ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"]
-        device_type_index = device_types.index(default_type) if default_type in device_types else 0
-        device_type = st.selectbox("What type of device is this?", device_types, index=device_type_index)
+        mapped_type = device_profile_name_map.get(device_name)
+        device_type_index = device_types.index(mapped_type) if mapped_type in device_types else 0
+        device_type = st.selectbox("What type of device is this?", device_types, index=device_type_index if load_defaults else 0)
 
-        # Show warning if selection doesn't match mapping
-        if device_name in device_profile_name_map and device_profile_name_map[device_name] != device_type:
-            mapped_type = device_profile_name_map[device_name]
-            st.warning(f"⚠️ This device is typically identified as `{mapped_type}`. If you're using `{device_type}`, ensure your provisioning is setup and verified accordingly.")
+        if device_name in device_profile_name_map and mapped_type != device_type:
+            if not st.session_state.device_lookup.get("warning_shown"):
+                st.warning(f"⚠️ This device is typically identified as `{mapped_type}`. If you're using `{device_type}`, ensure your provisioning is setup and verified accordingly.")
+                st.session_state.device_lookup["warning_shown"] = True
 
         location = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom..."])
         if location == "Custom...":
@@ -122,4 +126,4 @@ if "df" in st.session_state:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.16</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.17</div>", unsafe_allow_html=True)
