@@ -74,11 +74,24 @@ with st.expander("🔧 Step 2: Add Devices to Convert", expanded=True):
                 st.session_state.device_lookup_data["ONT_PROFILE_ID"] = profile_match.group(1).upper()
 
         # Default values if lookup was successful or not
-        data = st.session_state.get("device_lookup_data", {})
-        device_type = st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"], index=0 if not data else ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"].index(data.get("type", "ONT")))
-        location = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom..."])
-        if location == "Custom...":
-            location = st.text_input("Enter custom location (must match exactly in Camvio)")
+        device_types = ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"]
+        mapped_type = data.get("type", "ONT")
+
+        # Safely map values like CX_ROUTER → ROUTER
+        mapped_friendly_type = (
+            "ROUTER" if "ROUTER" in mapped_type else
+            "MESH" if "MESH" in mapped_type else
+            "SFP" if "SFP" in mapped_type else
+            "ENDPOINT" if "ENDPOINT" in mapped_type else
+            "ONT"
+        )
+
+        device_type = st.selectbox(
+            "What type of device is this?",
+            device_types,
+            index=device_types.index(mapped_friendly_type),
+            help="Make sure this matches how your system provisions this device"
+        )
 
         # Only show ONT fields if ONT
         ont_port = ""
