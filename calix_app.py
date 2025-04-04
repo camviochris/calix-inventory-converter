@@ -2,14 +2,13 @@
 # GitHub Commit Template
 # ----------------------------------------------
 # Commit Summary:
-# Add button to load device model + auto-collapse Step 1 after success
+# Fix index error on device_type lookup + rename Load button label
 #
 # Commit Description:
-# - Step 1 (header selection) auto-collapses when header is set
-# - Visual success confirmation added with expand/collapse support
-# - Added '🔍 Load Device Defaults' button to explicitly pull values
-#   from mappings.py for device model entry
-# - Updated footer version to v2.14
+# - Prevents .index() error if device type is unknown
+# - Sets default index 0 if unknown or not in list
+# - Renamed "Load Device Defaults" to "🔍 Look Up Device"
+# - Updated footer version to v2.15
 # ==============================================
 
 import streamlit as st
@@ -55,7 +54,7 @@ if "df" in st.session_state:
     st.header("🔧 Step 2: Add Devices to Convert")
     with st.form("device_form"):
         device_name = st.text_input("Enter device model name (as found in Description column)")
-        load_defaults = st.form_submit_button("🔍 Load Device Defaults")
+        load_defaults = st.form_submit_button("🔍 Look Up Device")
 
         default_type = "ONT"
         default_port = ""
@@ -73,7 +72,10 @@ if "df" in st.session_state:
                 default_profile_id = match_profile.group(1) if match_profile else ""
                 default_password = match_pass.group(1) if match_pass else "no value"
 
-        device_type = st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"], index=["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"].index(default_type))
+        device_types = ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"]
+        device_type_index = device_types.index(default_type) if default_type in device_types else 0
+        device_type = st.selectbox("What type of device is this?", device_types, index=device_type_index)
+
         location = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom..."])
         if location == "Custom...":
             location = st.text_input("Enter custom location (must match Camvio EXACTLY)")
@@ -115,4 +117,4 @@ if "df" in st.session_state:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.14</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.15</div>", unsafe_allow_html=True)
