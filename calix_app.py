@@ -2,13 +2,13 @@
 # GitHub Commit Template
 # ----------------------------------------------
 # Commit Summary:
-# Improve layout spacing and scroll performance
+# Add company name input and device count summary before export
 #
 # Commit Description:
-# - Added layout="wide" for more screen space
-# - Added spacing breaks between major steps
-# - Fixes scroll/rendering issues on forms with lots of content
-# - Footer updated to v2.23
+# - Adds input for Company Name to use in export filename
+# - Displays device count grouped by type before export
+# - Prepares next steps for export logic
+# - Footer updated to v2.24
 # ==============================================
 
 import streamlit as st
@@ -16,6 +16,7 @@ import pandas as pd
 import re
 import io
 import datetime
+from collections import Counter
 from mappings import device_profile_name_map, device_numbers_template_map
 
 st.set_page_config(page_title="Calix Inventory Import", layout="wide")
@@ -130,6 +131,21 @@ if "df" in st.session_state:
                     st.session_state.devices.pop(i)
                     st.rerun()
 
+        st.markdown("---")
+        st.header("📦 Export Setup")
+        company_name = st.text_input("Enter your company name", help="This will be used to name the output file.")
+        today_str = datetime.datetime.now().strftime("%Y%m%d")
+        export_filename = f"{company_name}_{today_str}.csv" if company_name else "output.csv"
+
+        # Device count summary
+        type_counts = Counter([d["device_name"] for d in st.session_state.devices])
+        st.subheader("📊 Device Count Summary")
+        for name, count in type_counts.items():
+            st.markdown(f"- **{name}**: {count} devices")
+
+        # Placeholder for next: export button and logic
+        st.markdown("\nExport logic coming next...")
+
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.23</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.24</div>", unsafe_allow_html=True)
