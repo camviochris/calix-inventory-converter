@@ -141,8 +141,9 @@ with step2_expander:
 
 step3_expander = st.expander("📦 Step 3: Export Setup", expanded=not st.session_state.get("export_complete", False))
 with step3_expander:
-        st.session_state.company_name = st.text_input("Enter your company name", value=st.session_state.company_name, help="This will be used to name the output file.")
+        company_input = st.text_input("Enter your company name", value=st.session_state.get("company_name", ""), help="This will be used to name the output file.")
         today_str = datetime.datetime.now().strftime("%Y%m%d")
+        st.session_state.company_name = company_input
         export_filename = f"{st.session_state.company_name}_{today_str}.csv" if st.session_state.company_name else "output.csv"
 
         # Device count summary
@@ -230,4 +231,4 @@ with step3_expander:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.43</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.44</div>", unsafe_allow_html=True)
