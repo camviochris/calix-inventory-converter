@@ -2,13 +2,13 @@
 # GitHub Commit Template
 # ----------------------------------------------
 # Commit Summary:
-# Fix index error on device_type lookup + rename Load button label
+# Add warning when selected device type differs from mapping.py
 #
 # Commit Description:
-# - Prevents .index() error if device type is unknown
-# - Sets default index 0 if unknown or not in list
-# - Renamed "Load Device Defaults" to "🔍 Look Up Device"
-# - Updated footer version to v2.15
+# - Shows an advisory warning if selected type (e.g. ROUTER) differs
+#   from mapped type (e.g. ONT) in mappings.py
+# - Reminds user to verify their provisioning setup before continuing
+# - Updated footer version to v2.16
 # ==============================================
 
 import streamlit as st
@@ -76,6 +76,11 @@ if "df" in st.session_state:
         device_type_index = device_types.index(default_type) if default_type in device_types else 0
         device_type = st.selectbox("What type of device is this?", device_types, index=device_type_index)
 
+        # Show warning if selection doesn't match mapping
+        if device_name in device_profile_name_map and device_profile_name_map[device_name] != device_type:
+            mapped_type = device_profile_name_map[device_name]
+            st.warning(f"⚠️ This device is typically identified as `{mapped_type}`. If you're using `{device_type}`, ensure your provisioning is setup and verified accordingly.")
+
         location = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom..."])
         if location == "Custom...":
             location = st.text_input("Enter custom location (must match Camvio EXACTLY)")
@@ -117,4 +122,4 @@ if "df" in st.session_state:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.15</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.16</div>", unsafe_allow_html=True)
