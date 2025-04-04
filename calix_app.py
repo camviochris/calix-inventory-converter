@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import re
 from mappings import device_profile_name_map, device_numbers_template_map
 
 st.set_page_config(page_title="Calix Inventory Import", layout="wide")
@@ -54,7 +55,7 @@ with st.expander("🔧 Step 2: Add Devices to Convert", expanded=True):
     # Add Device
     add_device = st.button("➕ Add Device")
     if add_device and device_name:
-        # Add the device to session state
+        # Capture the current values of ONT_PORT and ONT_PROFILE_ID without modifying them
         st.session_state.devices.append({
             "device_name": device_name.strip(),
             "ONT_PORT": custom_ont_port.strip() if custom_ont_port else default_ont_port,
