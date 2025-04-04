@@ -30,9 +30,9 @@ with st.expander("🧾 Step 1: Upload File & Select Header", expanded=not st.ses
             horizontal=True
         )
 
-        with st.expander("🔍 Show full row content"):
-            for i in df_preview.head(5).index:
-                st.text(f"Row {i}: {list(df_preview.loc[i].values)}")
+        st.markdown("##### Row Contents (for reference):")
+        for i in df_preview.head(5).index:
+            st.text(f"Row {i}: {list(df_preview.loc[i].values)}")
 
         if st.button("✅ Confirm Header Row"):
             df = pd.read_csv(uploaded_file, skiprows=header_idx) if filetype == "csv" else pd.read_excel(uploaded_file, skiprows=header_idx)
