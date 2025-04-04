@@ -1,156 +1,119 @@
 import streamlit as st
 import pandas as pd
 import re
+import io
+import datetime
+from mappings import device_profile_name_map, device_numbers_template_map
 
 st.set_page_config(page_title="Calix Inventory Import", layout="centered")
 st.title("📥 Calix Inventory Import Tool")
 
-# Session state initialization
-if "step_1_complete" not in st.session_state:
-    st.session_state.step_1_complete = False
-if "df" not in st.session_state:
-    st.session_state.df = None
-if "uploaded_file" not in st.session_state:
-    st.session_state.uploaded_file = None
+# Session state
+if "devices" not in st.session_state:
+    st.session_state.devices = []
 
-# Step 1: Upload and Header Row Selection
-with st.expander("🧾 Step 1: Upload File & Select Header", expanded=not st.session_state.step_1_complete):
-    uploaded_file = st.file_uploader("Upload your .csv or .xlsx file", type=["csv", "xlsx"])
-    st.session_state.uploaded_file = uploaded_file
+# Step 1: Upload file and confirm header
+st.header("📁 Step 1: Upload File")
+file = st.file_uploader("Upload your .csv or .xlsx file", type=["csv", "xlsx"])
+df = None
 
-    if uploaded_file:
-        filetype = "csv" if uploaded_file.name.endswith(".csv") else "excel"
-        df_preview = pd.read_csv(uploaded_file, header=None) if filetype == "csv" else pd.read_excel(uploaded_file, header=None)
+if file:
+    try:
+        df_preview = pd.read_csv(file, header=None) if file.name.endswith(".csv") else pd.read_excel(file, header=None)
+        st.write("### Preview First 5 Rows:")
+        st.dataframe(df_preview.head())
 
-        st.markdown("### Preview first 5 rows:")
-        st.dataframe(df_preview.head(5))
-
-        header_idx = st.radio(
-            "Which row contains your column headers?",
-            options=df_preview.head(5).index.tolist(),
-            format_func=lambda x: f"Row {x}",
-            horizontal=True
-        )
-
-        st.markdown("##### Row Contents (for reference):")
-        for i in df_preview.head(5).index:
-            st.text(f"Row {i}: {list(df_preview.loc[i].values)}")
-
-        if st.button("✅ Confirm Header Row"):
-            df = pd.read_csv(uploaded_file, skiprows=header_idx) if filetype == "csv" else pd.read_excel(uploaded_file, skiprows=header_idx)
+        header_row = st.radio("Which row contains the column headers?", df_preview.index[:5])
+        if st.button("✅ Set Header Row"):
+            df = pd.read_csv(file, skiprows=header_row) if file.name.endswith(".csv") else pd.read_excel(file, skiprows=header_row)
             df.columns = df.columns.str.strip()
             st.session_state.df = df
-            st.session_state.step_1_complete = True
-            st.rerun()
+            st.success("Header row set. Continue below.")
+    except Exception as e:
+        st.error(f"Error reading file: {e}")
 
-# ✅ Step 1 Success Indicator
-if st.session_state.step_1_complete:
-    st.success("✅ Step 1 Complete: Header row was set successfully.")
-
-# Step 2: Auto-Detect Columns & Classify Devices
-if st.session_state.step_1_complete and st.session_state.df is not None:
+# Step 2: Collect device info
+if "df" in st.session_state:
     st.markdown("---")
-    st.header("🔍 Step 2: Detect Columns & Classify Devices")
+    st.header("🔧 Step 2: Add Devices to Convert")
+    with st.form("device_form"):
+        device_name = st.text_input("Enter device model name (as found in Description column)")
+        device_type = st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"])
+        location = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom..."])
+        if location == "Custom...":
+            location = st.text_input("Enter custom location (must match Camvio EXACTLY)")
+            st.warning("⚠️ This must exactly match the spelling/case in Camvio or it will fail.")
+        add_device = st.form_submit_button("➕ Add Device")
 
-    df = st.session_state.df
+        if add_device and device_name:
+            st.session_state.devices.append({
+                "device_name": device_name.strip(),
+                "device_type": device_type,
+                "location": location.strip()
+            })
 
-    def find_column(columns, patterns):
-        for pat in patterns:
-            for col in columns:
-                if re.search(pat, col, re.IGNORECASE):
+    if st.session_state.devices:
+        st.write("### Devices Selected:")
+        for d in st.session_state.devices:
+            st.write(f"🔹 {d['device_name']} → {d['device_type']} @ {d['location']}")
+
+# Step 3: Process and Output
+if st.session_state.devices:
+    st.markdown("---")
+    st.header("📤 Step 3: Generate Output")
+    company = st.text_input("Company name (used in output filename)")
+
+    if company:
+        matched_rows = []
+        df = st.session_state.df
+        df = df.fillna("")
+        columns = df.columns.str.lower()
+
+        def find_column(possibles):
+            for col in df.columns:
+                if any(re.search(p, col, re.IGNORECASE) for p in possibles):
                     return col
-        return None
+            return None
 
-    description_col = find_column(df.columns, [r'description', r'product description', r'item description'])
-    serial_col = find_column(df.columns, [r'serial number', r'serial', r'sn'])
-    mac_col = find_column(df.columns, [r'mac', r'mac address'])
-    fsan_col = find_column(df.columns, [r'fsan'])
+        desc_col = find_column(["description", "product description", "item description"])
+        serial_col = find_column(["serial", "sn"])
+        mac_col = find_column(["mac"])
+        fsan_col = find_column(["fsan"])
 
-    if not description_col:
-        description_col = st.selectbox("Select Description column", df.columns.tolist())
-    if not serial_col:
-        serial_col = st.selectbox("Select Serial Number column", df.columns.tolist())
-    if not mac_col:
-        mac_col = st.selectbox("Select MAC Address column", df.columns.tolist())
-    if not fsan_col:
-        fsan_col = st.selectbox("Select FSAN column (or choose None)", ["None"] + df.columns.tolist())
+        for dev in st.session_state.devices:
+            name = dev["device_name"]
+            rows = df[df[desc_col].str.contains(name, case=False, na=False)]
+            profile = device_profile_name_map.get(name)
+            template = device_numbers_template_map.get(name)
+            if not profile or not template:
+                st.warning(f"⚠️ Device '{name}' not in template/profile map. Skipping.")
+                continue
+            for _, row in rows.iterrows():
+                mac = str(row.get(mac_col, "")).strip()
+                sn = str(row.get(serial_col, "")).strip()
+                fsan = str(row.get(fsan_col, "")).strip() if fsan_col else ""
+                device_numbers = template.replace("<<MAC>>", mac).replace("<<SN>>", sn).replace("<<FSAN>>", fsan)
+                matched_rows.append({
+                    "device_profile": profile,
+                    "device_name": name,
+                    "device_numbers": device_numbers,
+                    "location": dev["location"],
+                    "status": "UNASSIGNED"
+                })
 
-    # Extract device name (mirroring your real logic)
-    def extract_device_name(desc_column):
-        known_starts = {
-            'XGS ONT SFP+': 'SFP-XGS',
-            'GigaSpire u4xg, GS2128XG': 'GS2128XG',
-            'GigaSpire BLAST u10xe GS4237': 'GS4237',
-            'GigaSpire BLAST u6txg, GS5229XG': 'GS5229XG',
-            'GigaSpire BLAST u6t, GS5229E': 'GS5229E',
-            'GigaPro GPR2032H': 'GPR2032H',
-            'GigaPro GPR8802x': 'GPR8802X',
-            'GigaSpire u4hm, GM1028H': 'GM1028H',
-            'GPON ONT SFP Module': 'SFP-GPON',
-            '812G-1 GigaHub': '812G',
-            'GS2028E': 'GS2028E',
-            'GP1100G GigaPoint': 'GP1100G',
-            'GigaSpire u6.3': 'GS4229E',
-            'G1001-C': 'G1001-C',
-            'GigaSpire 7u10t, 10GE Tri Gateway, GS5239E': 'GS5239E'
-        }
+        result_df = pd.DataFrame(matched_rows)
+        if not result_df.empty:
+            st.success("🎉 Conversion complete!")
+            st.dataframe(result_df.head(10))
+            csv_buffer = io.StringIO()
+            result_df.to_csv(csv_buffer, index=False)
+            today = datetime.date.today().strftime("%Y%m%d")
+            safe_company = re.sub(r'[^a-zA-Z0-9_\-]', '', company.lower().replace(' ', '_'))
+            file_name = f"{safe_company}_{today}_calix.csv"
+            st.download_button("📥 Download CSV", data=csv_buffer.getvalue(), file_name=file_name, mime="text/csv")
+        else:
+            st.info("No matching records found in Description column.")
 
-        for start_pattern, device in known_starts.items():
-            if desc_column.startswith(start_pattern):
-                return device
-
-        # Fallback
-        comma_pos = desc_column.find(',')
-        space_pos = desc_column.find(' ')
-        semi_pos = desc_column.find(';')
-        if comma_pos == -1:
-            comma_pos = len(desc_column)
-        delimiter_pos = comma_pos
-        if space_pos != -1 and space_pos < delimiter_pos:
-            delimiter_pos = space_pos
-        if semi_pos != -1 and semi_pos < delimiter_pos:
-            delimiter_pos = semi_pos
-
-        return desc_column[:delimiter_pos].strip()
-
-    df["Device Name"] = df[description_col].astype(str).apply(extract_device_name)
-    unique_devices = sorted(df["Device Name"].dropna().unique())
-
-    # Let user classify and assign location for each unique device
-    st.markdown("### 📦 Classify Detected Devices")
-    device_config = {}
-    for device in unique_devices:
-        cols = st.columns([3, 2])
-        with cols[0]:
-            classification = st.selectbox(
-                f"Device '{device}' type:",
-                ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"],
-                key=f"type_{device}"
-            )
-        with cols[1]:
-            location = st.selectbox(
-                f"Location for '{device}':",
-                ["WAREHOUSE", "ITG", "Custom..."],
-                key=f"loc_{device}"
-            )
-            if location == "Custom...":
-                location = st.text_input(f"Enter custom location for '{device}'", key=f"custom_loc_{device}")
-        device_config[device] = {"type": classification, "location": location}
-
-    # Save for next step
-    st.session_state.device_config = device_config
-    st.session_state.description_col = description_col
-    st.session_state.serial_col = serial_col
-    st.session_state.mac_col = mac_col
-    st.session_state.fsan_col = fsan_col if fsan_col != "None" else None
-
-
-
-    st.markdown("---")
-st.markdown(
-    "<div style='text-align: right; font-size: 0.75em; color: gray;'>"
-    "Last updated: 2025-04-03 &nbsp; • &nbsp; Rev: v1.32"
-    "</div>",
-    unsafe_allow_html=True
-)
-
+# Footer
+st.markdown("---")
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.00</div>", unsafe_allow_html=True)
