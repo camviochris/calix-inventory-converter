@@ -59,6 +59,7 @@ if st.session_state.header_confirmed:
             default_password = "no value"
             device_found = False
 
+            # Look up device and set defaults
             if load_defaults:
                 st.session_state.device_lookup = {"device_name": device_name, "warning_shown": False}
                 
@@ -134,7 +135,3 @@ if st.session_state.header_confirmed:
                     if st.button("🗑️ Remove", key=f"remove_{i}"):
                         st.session_state.devices.pop(i)
                         st.rerun()
-
-        st.markdown("---")
-        if "company_name" not in st.session_state:
-            st.session_state.company_name = ""
