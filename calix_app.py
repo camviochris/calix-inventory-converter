@@ -66,9 +66,10 @@ with step2_expander:
 
         if load_defaults:
             st.session_state.device_lookup = {"device_name": device_name, "warning_shown": False}
-            if device_name in device_profile_name_map:
+            # Case-insensitive matching
+            if device_name.strip().upper() in [d.upper() for d in device_profile_name_map]:
                 device_found = True
-                default_type = device_profile_name_map[device_name]
+                default_type = device_profile_name_map[device_name.strip().upper()]
                 template = device_numbers_template_map.get(device_name, "")
                 match_port = re.search(r"ONT_PORT=([^|]*)", template)
                 match_profile = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
@@ -88,7 +89,7 @@ with step2_expander:
 
         # If device not found and selected as ONT
         if load_defaults and not device_found and device_type == "ONT":
-            st.warning("🚧 This device model name was not found in memory. You can still proceed as ONT by providing required settings.\n\nPlease provide the `ONT_PORT` and `ONT_PROFILE_ID` based on how it's setup in your system.\nIf this device is not in your Camvio inventory, it may fail provisioning. Please contact Camvio Support to add it.")
+            st.warning(f"🚧 This device model name '{device_name}' was not found in memory. You can still proceed as ONT by providing required settings.\n\nPlease provide the `ONT_PORT` and `ONT_PROFILE_ID` based on how it's setup in your system. If this device is not in your Camvio inventory, it may fail provisioning. Please contact Camvio Support to add it.")
 
         if load_defaults and device_name in device_profile_name_map and mapped_type != device_type and mapped_type == "ONT":
             st.warning(f"⚠️ This device is typically identified as `{mapped_type}`. Since you're using `{device_type}`, the system will still treat this as `{mapped_type}` behind the scenes for provisioning. Please verify that your provisioning is properly configured to handle this setup.")
@@ -232,4 +233,4 @@ After downloading your converted file:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.57</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.58</div>", unsafe_allow_html=True)
