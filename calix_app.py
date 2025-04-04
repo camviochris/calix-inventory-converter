@@ -1,9 +1,11 @@
 import streamlit as st
 import pandas as pd
+import re
 
-st.set_page_config(page_title="Calix Inventory - Step 1", layout="centered")
-st.title("📥 Calix Inventory Import")
+st.set_page_config(page_title="Calix Inventory Import", layout="centered")
+st.title("📥 Calix Inventory Import Tool")
 
+# Session state initialization
 if "step_1_complete" not in st.session_state:
     st.session_state.step_1_complete = False
 if "df" not in st.session_state:
@@ -41,18 +43,17 @@ with st.expander("🧾 Step 1: Upload File & Select Header", expanded=not st.ses
             st.session_state.step_1_complete = True
             st.rerun()
 
-# ✅ Step 1 Success Banner
+# ✅ Step 1 Success Indicator
 if st.session_state.step_1_complete:
     st.success("✅ Step 1 Complete: Header row was set successfully.")
 
-# ✅ Step 2: Column Detection + Device Extraction
+# Step 2: Auto-Detect Columns & Classify Devices
 if st.session_state.step_1_complete and st.session_state.df is not None:
     st.markdown("---")
     st.header("🔍 Step 2: Detect Columns & Classify Devices")
 
     df = st.session_state.df
 
-    # --- Attempt to auto-detect columns ---
     def find_column(columns, patterns):
         for pat in patterns:
             for col in columns:
@@ -65,7 +66,7 @@ if st.session_state.step_1_complete and st.session_state.df is not None:
     mac_col = find_column(df.columns, [r'mac', r'mac address'])
     fsan_col = find_column(df.columns, [r'fsan'])
 
-    # Manual fallback if anything missing
+    # Fallbacks if not auto-detected
     if not description_col:
         description_col = st.selectbox("Select Description column", df.columns.tolist())
     if not serial_col:
@@ -75,11 +76,9 @@ if st.session_state.step_1_complete and st.session_state.df is not None:
     if not fsan_col:
         fsan_col = st.selectbox("Select FSAN column (or choose None)", ["None"] + df.columns.tolist())
 
-    # --- Extract core device names from description ---
+    # Extract device name from Description
     def extract_device_name(description):
-        known_prefixes = [
-            'GigaSpire', 'GigaPro', 'GPON', 'GS', 'GM', 'GP', 'XGS', '812G', '803G', 'G1001', 'SFP'
-        ]
+        known_prefixes = ['GigaSpire', 'GigaPro', 'GPON', 'GS', 'GM', 'GP', 'XGS', '812G', '803G', 'G1001', 'SFP']
         for prefix in known_prefixes:
             if prefix in description:
                 return next((word for word in description.split() if prefix in word), description[:15])
@@ -88,7 +87,7 @@ if st.session_state.step_1_complete and st.session_state.df is not None:
     df["Device Name"] = df[description_col].astype(str).apply(extract_device_name)
     unique_devices = sorted(df["Device Name"].dropna().unique())
 
-    # --- Let user classify each device type ---
+    # Let user classify and assign location for each unique device
     st.markdown("### 📦 Classify Detected Devices")
     device_config = {}
     for device in unique_devices:
@@ -107,4 +106,11 @@ if st.session_state.step_1_complete and st.session_state.df is not None:
             )
             if location == "Custom...":
                 location = st.text_input(f"Enter custom location for '{device}'", key=f"custom_loc_{device}")
-        device_config[device] = {"type": classification, "location":_
+        device_config[device] = {"type": classification, "location": location}
+
+    # Save for next step
+    st.session_state.device_config = device_config
+    st.session_state.description_col = description_col
+    st.session_state.serial_col = serial_col
+    st.session_state.mac_col = mac_col
+    st.session_state.fsan_col = fsan_col if fsan_col != "None" else None
