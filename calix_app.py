@@ -30,6 +30,15 @@ if "lookup_warning" not in st.session_state:
 if "company_name_input" not in st.session_state:
     st.session_state.company_name_input = ""
 
+# --- UI to backend mapping ---
+ui_to_backend = {
+    "ONT": "ONT",
+    "ROUTER": "CX_ROUTER",
+    "MESH": "CX_MESH",
+    "SFP": "CX_SFP",
+    "ENDPOINT": "GAM_COAX_ENDPOINT"
+}
+
 # --- STEP 1: Upload & Set Header ---
 with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.header_confirmed):
     file = st.file_uploader("Upload .csv or .xlsx file", type=["csv", "xlsx"])
@@ -65,13 +74,16 @@ if st.session_state.header_confirmed:
             template = device_numbers_template_map.get(matched_key) if matched_key else ""
 
             if matched_key:
-                expected_type = device_profile_name_map.get(matched_key)
-                selected_type = st.session_state.device_type_input.upper()
-                if expected_type != selected_type:
+                expected_backend_type = device_profile_name_map.get(matched_key)
+                selected_ui_type = st.session_state.device_type_input
+                selected_backend_type = ui_to_backend.get(selected_ui_type, selected_ui_type)
+
+                # Only warn if there's a real mismatch
+                if expected_backend_type != selected_backend_type:
                     st.session_state.lookup_warning = (
-                        f"⚠️ This device is typically mapped as `{expected_type}`. "
-                        f"You selected `{selected_type}`.\n\n"
-                        f"{'Provisioning may fail if this is incorrect.' if expected_type == 'ONT' else 'Ensure your system supports this mapping.'}"
+                        f"⚠️ This device is typically mapped as `{expected_backend_type}`. "
+                        f"You selected `{selected_backend_type}`.\n\n"
+                        f"{'Provisioning may fail if this is incorrect.' if expected_backend_type == 'ONT' else 'Ensure your system supports this mapping.'}"
                     )
                 else:
                     st.session_state.lookup_warning = ""
@@ -118,5 +130,3 @@ if st.session_state.header_confirmed:
                 if st.button(f"❌ Remove", key=f"remove_{i}"):
                     st.session_state.devices.pop(i)
                     st.rerun()
-
-# Next step would be re-adding Step 3 Export functionality once Step 2 is confirmed 100% locked in.
