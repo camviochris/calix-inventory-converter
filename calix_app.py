@@ -122,6 +122,6 @@ if st.session_state.header_confirmed:
                 with col2:
                     if st.button("🗑️ Remove", key=f"remove_{i}"):
                         st.session_state.devices.pop(i)
-                        st.experimental_rerun()  # Replace if needed
+                        st.rerun() # Replace if needed
 
 # End of script
