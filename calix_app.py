@@ -25,6 +25,8 @@ if "ont_profile_id_input" not in st.session_state:
     st.session_state.ont_profile_id_input = ""
 if "lookup_warning" not in st.session_state:
     st.session_state.lookup_warning = ""
+if "company_name_input" not in st.session_state:
+    st.session_state.company_name_input = ""
 
 # --- STEP 1: Upload & Set Header ---
 with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.header_confirmed):
@@ -59,7 +61,7 @@ if st.session_state.header_confirmed:
             if matched_key:
                 mapped_type = device_profile_name_map.get(matched_key)
 
-                # Warn only if device is ONT and user selects something else
+                # Warn only if device is ONT and user selected something else
                 if mapped_type == "ONT" and st.session_state.device_type_input != "ONT":
                     st.session_state.lookup_warning = (
                         f"⚠️ This device is typically identified as `ONT`.\n"
@@ -106,9 +108,32 @@ if st.session_state.header_confirmed:
         if st.session_state.devices:
             st.subheader("Devices Selected:")
             for i, d in enumerate(st.session_state.devices):
-                st.markdown(f"🔹 **{d['device_name']}** → {d['device_type']} @ {d['location']}")
+                st.markdown(f"🔹 **{d['device_name']}** → _{d['device_type']}_ → `{d['location']}`")
                 if d["device_type"] == "ONT":
                     st.code(f"ONT_PORT: {d['ONT_PORT']}\nONT_PROFILE_ID: {d['ONT_PROFILE_ID']}\nONT_MOMENTUM_PASSWORD: NO VALUE", language="text")
                 if st.button(f"❌ Remove", key=f"remove_{i}"):
                     st.session_state.devices.pop(i)
                     st.rerun()
+
+# --- STEP 3: Export Setup (Preview only) ---
+if st.session_state.header_confirmed and st.session_state.devices:
+    with st.expander("📦 Step 3: Export Setup", expanded=True):
+        st.text_input("Enter your company name", key="company_name_input")
+        company = st.session_state.company_name_input.strip()
+        today = pd.Timestamp.today().strftime("%Y%m%d")
+        export_filename = f"{company}_{today}.csv" if company else "export.csv"
+
+        st.subheader("📋 Export Summary")
+        desc_col = next((col for col in st.session_state.df.columns if 'description' in col.lower()), None)
+
+        if desc_col and st.session_state.devices:
+            for device in st.session_state.devices:
+                device_name = device['device_name']
+                location = device['location']
+                device_type = device['device_type']
+                count = st.session_state.df[desc_col].astype(str).str.contains(device_name, case=False, na=False).sum()
+                st.markdown(f"• **{device_name}** → _{device_type}_ → `{location}` — **{count} match(es)**")
+        else:
+            st.info("Waiting for devices to be added and description column to be detected.")
+
+        st.button("📤 Export and Download File")
