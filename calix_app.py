@@ -10,13 +10,17 @@ st.set_page_config(page_title="Calix Inventory Import", layout="wide")
 st.title("📥 Calix Inventory Import Tool")
 st.info("🔒 This tool processes everything in-memory and does **not** store any files or customer data.", icon="🔐")
 
-# Session state
+# Session state initialization
 if "devices" not in st.session_state:
     st.session_state.devices = []
 if "header_confirmed" not in st.session_state:
     st.session_state.header_confirmed = False
 if "device_lookup" not in st.session_state:
     st.session_state.device_lookup = {}
+if "custom_ont_port" not in st.session_state:
+    st.session_state.custom_ont_port = ""
+if "custom_profile_id" not in st.session_state:
+    st.session_state.custom_profile_id = ""
 
 # Step 1: Upload file and confirm header
 with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.header_confirmed):
@@ -71,7 +75,7 @@ with step2_expander:
                 default_port = match_port.group(1) if match_port else ""
                 default_profile_id = match_profile.group(1) if match_profile else ""
 
-            # Store the ONT_PORT and ONT_PROFILE_ID values in session state
+            # Store the ONT_PORT and ONT_PROFILE_ID to session state
             if default_type == "ONT":
                 st.session_state.custom_ont_port = default_port
                 st.session_state.custom_profile_id = default_profile_id
