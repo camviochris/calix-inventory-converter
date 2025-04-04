@@ -136,7 +136,7 @@ with step2_expander:
         if "company_name" not in st.session_state:
             st.session_state.company_name = ""
 
-step3_expander = st.expander("📦 Step 3: Export Setup", expanded=not st.session_state.get("export_complete", False))
+step3_expander = st.expander("📦 Step 3: Export Setup", expanded=True)  # Step 3 will stay expanded
 if "df" in st.session_state:
     with step3_expander:
         company_input = st.text_input("Enter your company name", value=st.session_state.get("company_name", ""), help="This will be used to name the output file.")
