@@ -61,24 +61,18 @@ if st.session_state.header_confirmed:
             else:
                 custom_location = location
 
-            lookup_clicked = st.form_submit_button("🔍 Look Up Device")
+            mapped_type_raw = device_profile_name_map.get(device_name.upper(), "")
+            template = device_numbers_template_map.get(device_name.upper(), "")
+            port_match = re.search(r"ONT_PORT=([^|]*)", template)
+            profile_match = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
 
-            default_port = ""
-            default_profile = device_name.upper()
-            warning = ""
+            default_port = port_match.group(1) if port_match else ""
+            default_profile = profile_match.group(1).upper() if profile_match else device_name.upper()
 
-            if lookup_clicked and device_name:
-                mapped_type = device_profile_name_map.get(device_name.upper())
-                template = device_numbers_template_map.get(device_name.upper())
-                if template:
-                    port_match = re.search(r"ONT_PORT=([^|]*)", template)
-                    profile_match = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
-                    default_port = port_match.group(1) if port_match else ""
-                    default_profile = profile_match.group(1).upper() if profile_match else default_profile
-                if mapped_type and mapped_type != f"CX_{selected_type}" and selected_type == "ONT":
-                    warning = f"⚠️ This device is typically mapped as {mapped_type}. You selected {selected_type}. Ensure your provisioning system is configured accordingly."
-                elif mapped_type and mapped_type != f"CX_{selected_type}":
-                    warning = f"⚠️ This device is typically mapped as {mapped_type}. You selected {selected_type}."
+            mapped_to_ui = mapped_type_raw.replace("CX_", "") if "CX_" in mapped_type_raw else mapped_type_raw
+            show_warning = False
+            if mapped_type_raw and mapped_to_ui != selected_type:
+                show_warning = True
 
             if selected_type == "ONT":
                 ont_port = st.text_input("ONT_PORT", value=default_port)
@@ -87,8 +81,11 @@ if st.session_state.header_confirmed:
                 ont_port = ""
                 ont_profile = ""
 
-            if warning:
-                st.warning(warning)
+            if show_warning:
+                st.warning(
+                    f"⚠️ This device is typically mapped as `{mapped_to_ui}`. "
+                    f"You selected `{selected_type}`. If you're using this differently, make sure provisioning is configured properly."
+                )
 
             if st.form_submit_button("➕ Add Device"):
                 st.session_state.devices.append({
@@ -99,6 +96,8 @@ if st.session_state.header_confirmed:
                     "ONT_PROFILE_ID": ont_profile,
                     "ONT_MOMENTUM_PASSWORD": "NO VALUE"
                 })
+                st.success("✅ Device added successfully!")
+                st.rerun()
 
         if st.session_state.devices:
             st.subheader("Devices Selected:")
@@ -113,7 +112,7 @@ if st.session_state.header_confirmed:
                         st.session_state.devices.pop(idx)
                         st.rerun()
 
-# --- Step 3: Export ---
+# --- Step 3: Export (UI only for now) ---
 if st.session_state.df is not None and st.session_state.devices:
     with st.expander("📤 Step 3: Export File", expanded=True):
         st.session_state.company_name = st.text_input("Enter your company name")
@@ -124,8 +123,7 @@ if st.session_state.df is not None and st.session_state.devices:
         for d in st.session_state.devices:
             st.markdown(f"- **{d['device_name']}** → {d['device_type']} @ {d['location']}")
 
-        st.markdown("---")
-
+        st.markdown("🔔 Click export when ready to generate your output file.")
         if st.button("📥 Export & Download File"):
             output = io.StringIO()
             output.write("device_profile,device_name,device_numbers,inventory_location,inventory_status\n")
@@ -153,3 +151,7 @@ if st.session_state.df is not None and st.session_state.devices:
                     output.write(f"{profile_type},{device_name},{numbers},{device['location']},UNASSIGNED\n")
 
             st.download_button("⬇️ Download File", data=output.getvalue(), file_name=file_name, mime="text/csv")
+
+# --- Footer ---
+st.markdown("---")
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-04 • Rev: v3.0</div>", unsafe_allow_html=True)
