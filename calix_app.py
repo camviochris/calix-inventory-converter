@@ -51,32 +51,39 @@ if st.session_state.header_confirmed:
         st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"], key="device_type_input")
         st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom"], key="location_input")
 
-        # Look Up Device
         if st.button("🔍 Look Up Device"):
             model_upper = st.session_state.device_name_input.strip().upper()
-            mapped_type = device_profile_name_map.get(model_upper)
-            template = device_numbers_template_map.get(model_upper)
+            matched_key = next((k for k in device_profile_name_map if k.upper() == model_upper), None)
+            template = device_numbers_template_map.get(matched_key) if matched_key else ""
 
-            # Preserve user choice but warn if mismatch
-            if mapped_type and mapped_type != st.session_state.device_type_input:
+            if matched_key:
+                mapped_type = device_profile_name_map.get(matched_key)
+
+                # Warn only if device is ONT and user selects something else
+                if mapped_type == "ONT" and st.session_state.device_type_input != "ONT":
+                    st.session_state.lookup_warning = (
+                        f"⚠️ This device is typically identified as `ONT`.\n"
+                        f"You've selected `{st.session_state.device_type_input}`. This may cause provisioning issues.\n"
+                        f"Please verify your system is configured to support this setup."
+                    )
+                else:
+                    st.session_state.lookup_warning = ""
+
+                if "ONT_PORT" in template:
+                    port_match = re.search(r"ONT_PORT=([^|]*)", template)
+                    profile_match = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
+                    if port_match:
+                        st.session_state.ont_port_input = port_match.group(1)
+                    if profile_match:
+                        st.session_state.ont_profile_id_input = profile_match.group(1).upper()
+                else:
+                    st.session_state.ont_port_input = ""
+                    st.session_state.ont_profile_id_input = model_upper
+            else:
                 st.session_state.lookup_warning = (
-                    f"⚠️ This device is typically mapped as `{mapped_type}`. "
-                    f"You selected `{st.session_state.device_type_input}`. "
-                    f"Ensure your provisioning system is configured accordingly."
+                    "🚧 This device was not found in memory. If it's an ONT, make sure to enter ONT_PORT and ONT_PROFILE_ID manually.\n"
+                    "Ensure the device exists in your Camvio inventory or provisioning may fail."
                 )
-            else:
-                st.session_state.lookup_warning = ""
-
-            if template and "ONT_PORT" in template:
-                port_match = re.search(r"ONT_PORT=([^|]*)", template)
-                profile_match = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
-                if port_match:
-                    st.session_state.ont_port_input = port_match.group(1)
-                if profile_match:
-                    st.session_state.ont_profile_id_input = profile_match.group(1)
-            else:
-                st.session_state.ont_port_input = ""
-                st.session_state.ont_profile_id_input = st.session_state.device_name_input.strip().upper()
 
         if st.session_state.device_type_input == "ONT":
             st.text_input("ONT_PORT", value=st.session_state.ont_port_input, key="ont_port_input")
@@ -85,19 +92,17 @@ if st.session_state.header_confirmed:
         if st.session_state.lookup_warning:
             st.warning(st.session_state.lookup_warning)
 
-        # Add Device
         if st.button("➕ Add Device"):
             device = {
                 "device_name": st.session_state.device_name_input.strip(),
                 "device_type": st.session_state.device_type_input,
                 "location": st.session_state.location_input.strip(),
                 "ONT_PORT": st.session_state.ont_port_input.strip() if st.session_state.device_type_input == "ONT" else "",
-                "ONT_PROFILE_ID": st.session_state.ont_profile_id_input.strip() if st.session_state.device_type_input == "ONT" else "",
+                "ONT_PROFILE_ID": st.session_state.ont_profile_id_input.strip().upper() if st.session_state.device_type_input == "ONT" else "",
                 "ONT_MOMENTUM_PASSWORD": "NO VALUE"
             }
             st.session_state.devices.append(device)
 
-        # Devices Selected
         if st.session_state.devices:
             st.subheader("Devices Selected:")
             for i, d in enumerate(st.session_state.devices):
