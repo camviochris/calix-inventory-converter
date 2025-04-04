@@ -43,19 +43,35 @@ if "df" in st.session_state:
         if location == "Custom...":
             location = st.text_input("Enter custom location (must match Camvio EXACTLY)")
             st.warning("⚠️ This must exactly match the spelling/case in Camvio or it will fail.")
+
+        # Show default values for ONT customization
+        custom_ont_port = ""
+        custom_profile_id = ""
+        custom_password = "no value"
+        if device_type == "ONT":
+            st.markdown("#### Customize ONT Settings (optional)")
+            custom_ont_port = st.text_input("ONT_PORT", value="G1")
+            custom_profile_id = st.text_input("ONT_PROFILE_ID", value=device_name)
+            custom_password = st.text_input("ONT_MOMENTUM_PASSWORD", value="no value")
+
         add_device = st.form_submit_button("➕ Add Device")
 
         if add_device and device_name:
             st.session_state.devices.append({
                 "device_name": device_name.strip(),
                 "device_type": device_type,
-                "location": location.strip()
+                "location": location.strip(),
+                "ONT_PORT": custom_ont_port.strip(),
+                "ONT_PROFILE_ID": custom_profile_id.strip(),
+                "ONT_MOMENTUM_PASSWORD": custom_password.strip()
             })
 
     if st.session_state.devices:
         st.write("### Devices Selected:")
         for d in st.session_state.devices:
             st.write(f"🔹 {d['device_name']} → {d['device_type']} @ {d['location']}")
+            if d["device_type"] == "ONT":
+                st.code(f"ONT_PORT: {d['ONT_PORT']}\nONT_PROFILE_ID: {d['ONT_PROFILE_ID']}\nONT_MOMENTUM_PASSWORD: {d['ONT_MOMENTUM_PASSWORD']}", language="text")
 
 # Step 3: Process and Output
 if st.session_state.devices:
@@ -85,9 +101,20 @@ if st.session_state.devices:
             rows = df[df[desc_col].str.contains(name, case=False, na=False)]
             profile = device_profile_name_map.get(name)
             template = device_numbers_template_map.get(name)
+
             if not profile or not template:
                 st.warning(f"⚠️ Device '{name}' not in template/profile map. Skipping.")
                 continue
+
+            # Customize ONT template if needed
+            if dev["device_type"] == "ONT":
+                if "<<ONT_PORT>>" in template or "ONT_PORT=" in template:
+                    template = re.sub(r"ONT_PORT=[^|]*", f"ONT_PORT={dev['ONT_PORT']}", template)
+                if "<<ONT_PROFILE_ID>>" in template or "ONT_PROFILE_ID=" in template:
+                    template = re.sub(r"ONT_PROFILE_ID=[^|]*", f"ONT_PROFILE_ID={dev['ONT_PROFILE_ID']}", template)
+                if "<<ONT_MOMENTUM_PASSWORD>>" in template or "ONT_MOMENTUM_PASSWORD=" in template:
+                    template = re.sub(r"ONT_MOMENTUM_PASSWORD=[^|]*", f"ONT_MOMENTUM_PASSWORD={dev['ONT_MOMENTUM_PASSWORD']}", template)
+
             for _, row in rows.iterrows():
                 mac = str(row.get(mac_col, "")).strip()
                 sn = str(row.get(serial_col, "")).strip()
@@ -116,4 +143,4 @@ if st.session_state.devices:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.00</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.10</div>", unsafe_allow_html=True)
