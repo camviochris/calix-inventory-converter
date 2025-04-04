@@ -3,111 +3,107 @@ import pandas as pd
 import re
 from mappings import device_profile_name_map, device_numbers_template_map
 
-st.set_page_config("Calix Inventory Import Tool", layout="wide")
+st.set_page_config(page_title="Calix Inventory Import Tool", layout="wide")
 st.title("📥 Calix Inventory Import Tool")
-st.info("🔒 This tool processes everything in-memory and does **not** store any files or customer data.", icon="🔐")
 
-# ---------- SESSION STATE ----------
-if "devices" not in st.session_state:
-    st.session_state.devices = []
-if "header_confirmed" not in st.session_state:
-    st.session_state.header_confirmed = False
+# --- SESSION STATE INIT ---
 if "df" not in st.session_state:
     st.session_state.df = None
+if "header_confirmed" not in st.session_state:
+    st.session_state.header_confirmed = False
+if "devices" not in st.session_state:
+    st.session_state.devices = []
+if "device_name_input" not in st.session_state:
+    st.session_state.device_name_input = ""
+if "device_type_input" not in st.session_state:
+    st.session_state.device_type_input = "ONT"
+if "location_input" not in st.session_state:
+    st.session_state.location_input = "WAREHOUSE"
+if "ont_port_input" not in st.session_state:
+    st.session_state.ont_port_input = ""
+if "ont_profile_id_input" not in st.session_state:
+    st.session_state.ont_profile_id_input = ""
+if "lookup_warning" not in st.session_state:
+    st.session_state.lookup_warning = ""
 
-# ---------- STEP 1 ----------
+# --- STEP 1: Upload & Set Header ---
 with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.header_confirmed):
-    file = st.file_uploader("Upload your .csv or .xlsx file", type=["csv", "xlsx"])
+    file = st.file_uploader("Upload .csv or .xlsx file", type=["csv", "xlsx"])
     if file:
         try:
             df_preview = pd.read_csv(file, header=None) if file.name.endswith(".csv") else pd.read_excel(file, header=None)
-            st.subheader("Preview First 5 Rows:")
+            st.write("### Preview First 5 Rows:")
             st.dataframe(df_preview.head())
-
-            header_row = st.radio(
-                "Which row contains the column headers?",
-                options=df_preview.index[:5],
-                help="Choose the row with fields like Serial Number, MAC, etc."
-            )
-
+            header_row = st.radio("Which row contains the column headers?", df_preview.index[:5])
             if st.button("✅ Set Header Row"):
                 df = pd.read_csv(file, skiprows=header_row) if file.name.endswith(".csv") else pd.read_excel(file, skiprows=header_row)
                 df.columns = df.columns.str.strip()
                 st.session_state.df = df
                 st.session_state.header_confirmed = True
-                st.success("✅ Step 1 completed! You can now proceed to Step 2.")
+                st.rerun()
         except Exception as e:
             st.error(f"Error reading file: {e}")
 
-# ---------- STEP 2 ----------
+# --- STEP 2: Add Devices ---
 if st.session_state.header_confirmed:
-    with st.expander("🔧 Step 2: Add Devices to Convert", expanded=True):
-        with st.form("device_form"):
-        # Inside the form section
-        device_name = st.text_input("Enter device model name ℹ️", help="Found in the Description column of your file")
-        lookup = st.form_submit_button("🔍 Look Up Device")
+    with st.expander("🛠️ Step 2: Add Devices to Convert", expanded=True):
+        st.text_input("Enter device model name", key="device_name_input")
+        st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"], key="device_type_input")
+        st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom"], key="location_input")
 
-        # Set defaults
-        ont_port = ""
-        ont_profile_id = device_name.upper()
-        device_types = ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"]
-        device_type = st.selectbox("What type of device is this?", device_types)
+        # Look Up Device
+        if st.button("🔍 Look Up Device"):
+            model_upper = st.session_state.device_name_input.strip().upper()
+            mapped_type = device_profile_name_map.get(model_upper)
+            template = device_numbers_template_map.get(model_upper)
 
-        # Optional warning if mismatch
-        matched_key = next((k for k in device_profile_name_map if k.lower() == device_name.lower()), None)
-        if matched_key:
-            mapped_type = device_profile_name_map[matched_key]
-            mapped_friendly = (
-                "ROUTER" if "ROUTER" in mapped_type else
-                "MESH" if "MESH" in mapped_type else
-                "SFP" if "SFP" in mapped_type else
-                "ENDPOINT" if "ENDPOINT" in mapped_type else
-                "ONT"
-            )
-            if mapped_friendly != device_type:
-                st.warning(f"⚠️ This device is typically identified as `{mapped_friendly}`. You selected `{device_type}`. If this is intentional, ensure provisioning supports it.")
+            # Preserve user choice but warn if mismatch
+            if mapped_type and mapped_type != st.session_state.device_type_input:
+                st.session_state.lookup_warning = (
+                    f"⚠️ This device is typically mapped as `{mapped_type}`. "
+                    f"You selected `{st.session_state.device_type_input}`. "
+                    f"Ensure your provisioning system is configured accordingly."
+                )
+            else:
+                st.session_state.lookup_warning = ""
 
-        # Get template values only when Look Up is clicked
-        if lookup and matched_key:
-            template = device_numbers_template_map.get(matched_key, "")
-            port_match = re.search(r"ONT_PORT=([^|]*)", template)
-            profile_match = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
+            if template and "ONT_PORT" in template:
+                port_match = re.search(r"ONT_PORT=([^|]*)", template)
+                profile_match = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
+                if port_match:
+                    st.session_state.ont_port_input = port_match.group(1)
+                if profile_match:
+                    st.session_state.ont_profile_id_input = profile_match.group(1)
+            else:
+                st.session_state.ont_port_input = ""
+                st.session_state.ont_profile_id_input = st.session_state.device_name_input.strip().upper()
 
-            ont_port = port_match.group(1).strip() if port_match else ""
-            ont_profile_id = profile_match.group(1).strip().upper() if profile_match else device_name.upper()
+        if st.session_state.device_type_input == "ONT":
+            st.text_input("ONT_PORT", value=st.session_state.ont_port_input, key="ont_port_input")
+            st.text_input("ONT_PROFILE_ID", value=st.session_state.ont_profile_id_input, key="ont_profile_id_input")
 
-        # Location selection
-        location = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom..."])
-        if location == "Custom...":
-            location = st.text_input("Enter custom location (must match Camvio EXACTLY)")
-            st.warning("⚠️ This must exactly match your Camvio location or it will fail.")
+        if st.session_state.lookup_warning:
+            st.warning(st.session_state.lookup_warning)
 
-        # Show ONT fields only if selected
-        if device_type == "ONT":
-            ont_port = st.text_input("ONT_PORT", value=ont_port)
-            ont_profile_id = st.text_input("ONT_PROFILE_ID", value=ont_profile_id)
-
-        # Add device
-        if st.form_submit_button("➕ Add Device"):
-            st.session_state.devices.append({
-                "device_name": device_name,
-                "device_type": device_type,
-                "location": location,
-                "ONT_PORT": ont_port if device_type == "ONT" else "",
-                "ONT_PROFILE_ID": ont_profile_id if device_type == "ONT" else "",
+        # Add Device
+        if st.button("➕ Add Device"):
+            device = {
+                "device_name": st.session_state.device_name_input.strip(),
+                "device_type": st.session_state.device_type_input,
+                "location": st.session_state.location_input.strip(),
+                "ONT_PORT": st.session_state.ont_port_input.strip() if st.session_state.device_type_input == "ONT" else "",
+                "ONT_PROFILE_ID": st.session_state.ont_profile_id_input.strip() if st.session_state.device_type_input == "ONT" else "",
                 "ONT_MOMENTUM_PASSWORD": "NO VALUE"
-            })
-            st.success(f"{device_name} added to list ✅")
-        # 5. Show added devices
+            }
+            st.session_state.devices.append(device)
+
+        # Devices Selected
         if st.session_state.devices:
-            st.markdown("### Devices Selected:")
+            st.subheader("Devices Selected:")
             for i, d in enumerate(st.session_state.devices):
-                col1, col2 = st.columns([5, 1])
-                with col1:
-                    st.write(f"🔹 {d['device_name']} → {d['device_type']} @ {d['location']}")
-                    if d["device_type"] == "ONT":
-                        st.code(f"ONT_PORT: {d['ONT_PORT']}\nONT_PROFILE_ID: {d['ONT_PROFILE_ID']}\nONT_MOMENTUM_PASSWORD: NO VALUE")
-                with col2:
-                    if st.button("🗑️ Remove", key=f"remove_{i}"):
-                        st.session_state.devices.pop(i)
-                        st.rerun()
+                st.markdown(f"🔹 **{d['device_name']}** → {d['device_type']} @ {d['location']}")
+                if d["device_type"] == "ONT":
+                    st.code(f"ONT_PORT: {d['ONT_PORT']}\nONT_PROFILE_ID: {d['ONT_PROFILE_ID']}\nONT_MOMENTUM_PASSWORD: NO VALUE", language="text")
+                if st.button(f"❌ Remove", key=f"remove_{i}"):
+                    st.session_state.devices.pop(i)
+                    st.rerun()
