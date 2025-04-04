@@ -8,15 +8,15 @@ st.set_page_config(page_title="Calix Inventory Converter", layout="centered")
 st.title("📦 Calix Smart Inventory Import Tool")
 
 st.markdown("""
-Upload a Calix inventory file (.csv or .xlsx). This tool detects unique device types from the Description column,
-prompts you to classify them (ONT, ROUTER, MESH, SFP, ENDPOINT), and converts the inventory into import-ready format.
+Upload a Calix inventory file (.csv or .xlsx). This tool lets you confirm your header row,
+then detects device types from the Description column, prompts you to classify them,
+and converts the inventory into import-ready format.
 
 **No data is stored. Everything runs securely in-memory.**
 """)
 
 default_status = 'UNASSIGNED'
 
-# Map device type to profile and template
 profile_map = {
     'ONT': 'CALIX_ONT',
     'ROUTER': 'CALIX_ROUTER',
@@ -45,20 +45,28 @@ company_name = st.text_input("Enter your company name (used for output file name
 
 if uploaded_file:
     try:
-        df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
-        df.columns = df.columns.str.strip()
+        raw_data = pd.read_csv(uploaded_file, header=None) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file, header=None)
 
-        description_col = find_column(df.columns, [r'description'])
-        serial_col = find_column(df.columns, [r'^serial number$', r'^serial$', r'^sn$'])
-        mac_col = find_column(df.columns, [r'^mac$', r'^mac address(es)?$'])
+        st.markdown("### Step 1: Select Header Row")
+        st.dataframe(raw_data.head(5))
+        header_row_index = st.number_input("Which row contains the column headers? (0-indexed)", min_value=0, max_value=4, step=1, value=0)
 
-        if not all([description_col, serial_col, mac_col]):
-            st.error("Missing required columns: Description, Serial Number, or MAC Address")
-        else:
-            df["Device"] = df[description_col].str.strip()
+        if st.button("Confirm Header Row"):
+            df = pd.read_csv(uploaded_file, skiprows=header_row_index) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file, skiprows=header_row_index)
+            df.columns = df.columns.str.strip()
+
+            st.success("Header row confirmed. Continue with classification.")
+
+            # Allow user to select which columns match known types
+            description_col = st.selectbox("Select Description column", df.columns, index=find_column(df.columns, [r'description', r'product description', r'item description']) or 0)
+            serial_col = st.selectbox("Select Serial Number column", df.columns, index=find_column(df.columns, [r'serial', r'sn']) or 0)
+            mac_col = st.selectbox("Select MAC Address column", df.columns, index=find_column(df.columns, [r'mac']) or 0)
+            fsan_col = st.selectbox("Select FSAN column (if any)", ["None"] + list(df.columns))
+
+            df["Device"] = df[description_col].astype(str).str.strip()
             unique_devices = df["Device"].dropna().unique()
-            st.markdown("### 🔍 Detected Devices:")
 
+            st.markdown("### Step 2: Classify Devices")
             device_selections = {}
             for device in sorted(unique_devices):
                 classification = st.selectbox(
@@ -84,6 +92,7 @@ if uploaded_file:
                         device_type = device_selections.get(device_name)
                         serial = str(row[serial_col]).strip()
                         mac = str(row[mac_col]).strip()
+                        fsan = str(row[fsan_col]).strip() if fsan_col != "None" else ''
 
                         profile = profile_map[device_type]
                         template = template_map[device_type]
