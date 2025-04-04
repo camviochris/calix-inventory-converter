@@ -61,7 +61,8 @@ st.markdown("\n\n")
 # Step 2: Collect device info
 step2_expander = st.expander("🔧 Step 2: Add Devices to Convert", expanded=len(st.session_state.devices) == 0)
 with step2_expander:
-    st.success("✅ Step 2 completed") if st.session_state.devices else None
+    if st.session_state.devices:
+        st.success("✅ Step 2 completed")
     st.markdown("\n")
     with st.form("device_form"):
         device_name = st.text_input("Enter device model name ℹ️", help="Found in the Description column of your file")
@@ -237,4 +238,4 @@ After downloading your converted file:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.47</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.48</div>", unsafe_allow_html=True)
