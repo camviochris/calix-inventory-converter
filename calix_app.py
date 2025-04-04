@@ -19,6 +19,8 @@ if "device_type_input" not in st.session_state:
     st.session_state.device_type_input = "ONT"
 if "location_input" not in st.session_state:
     st.session_state.location_input = "WAREHOUSE"
+if "custom_location" not in st.session_state:
+    st.session_state.custom_location = ""
 if "ont_port_input" not in st.session_state:
     st.session_state.ont_port_input = ""
 if "ont_profile_id_input" not in st.session_state:
@@ -53,36 +55,35 @@ if st.session_state.header_confirmed:
         st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"], key="device_type_input")
         st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom"], key="location_input")
 
+        if st.session_state.location_input == "Custom":
+            st.text_input("Enter custom location (must match Camvio exactly)", key="custom_location")
+            st.warning("⚠️ Custom locations must match Camvio inventory location **exactly**, including spelling, case, and spacing.")
+
         if st.button("🔍 Look Up Device"):
             model_upper = st.session_state.device_name_input.strip().upper()
             matched_key = next((k for k in device_profile_name_map if k.upper() == model_upper), None)
             template = device_numbers_template_map.get(matched_key) if matched_key else ""
 
             if matched_key:
-                mapped_type = device_profile_name_map.get(matched_key)
-
-                if mapped_type == "ONT" and st.session_state.device_type_input != "ONT":
+                expected_type = device_profile_name_map.get(matched_key)
+                selected_type = st.session_state.device_type_input.upper()
+                if expected_type != selected_type:
                     st.session_state.lookup_warning = (
-                        f"⚠️ This device is typically identified as `ONT`.\n"
-                        f"You've selected `{st.session_state.device_type_input}`. This may cause provisioning issues."
+                        f"⚠️ This device is typically mapped as `{expected_type}`. "
+                        f"You selected `{selected_type}`.\n\n"
+                        f"{'Provisioning may fail if this is incorrect.' if expected_type == 'ONT' else 'Ensure your system supports this mapping.'}"
                     )
                 else:
                     st.session_state.lookup_warning = ""
 
-                if "ONT_PORT" in template:
-                    port_match = re.search(r"ONT_PORT=([^|]*)", template)
-                    profile_match = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
-                    if port_match:
-                        st.session_state.ont_port_input = port_match.group(1)
-                    if profile_match:
-                        st.session_state.ont_profile_id_input = profile_match.group(1).upper()
-                else:
-                    st.session_state.ont_port_input = ""
-                    st.session_state.ont_profile_id_input = model_upper
+                port_match = re.search(r"ONT_PORT=([^|]*)", template)
+                profile_match = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
+                st.session_state.ont_port_input = port_match.group(1) if port_match else ""
+                st.session_state.ont_profile_id_input = profile_match.group(1).upper() if profile_match else model_upper
             else:
                 st.session_state.lookup_warning = (
-                    "🚧 This device was not found in memory. If it's an ONT, make sure to enter ONT_PORT and ONT_PROFILE_ID manually.\n"
-                    "Ensure the device exists in your Camvio inventory or provisioning may fail."
+                    "🚧 This device was not found in memory. If it's an ONT, provide `ONT_PORT` and `ONT_PROFILE_ID` manually.\n"
+                    "Ensure this device is added to your Camvio provisioning system to avoid issues."
                 )
 
         if st.session_state.device_type_input == "ONT":
@@ -93,10 +94,15 @@ if st.session_state.header_confirmed:
             st.warning(st.session_state.lookup_warning)
 
         if st.button("➕ Add Device"):
+            location = (
+                st.session_state.custom_location.strip()
+                if st.session_state.location_input == "Custom"
+                else st.session_state.location_input
+            )
             device = {
                 "device_name": st.session_state.device_name_input.strip(),
                 "device_type": st.session_state.device_type_input,
-                "location": st.session_state.location_input.strip(),
+                "location": location,
                 "ONT_PORT": st.session_state.ont_port_input.strip() if st.session_state.device_type_input == "ONT" else "",
                 "ONT_PROFILE_ID": st.session_state.ont_profile_id_input.strip().upper() if st.session_state.device_type_input == "ONT" else "",
                 "ONT_MOMENTUM_PASSWORD": "NO VALUE"
@@ -113,85 +119,4 @@ if st.session_state.header_confirmed:
                     st.session_state.devices.pop(i)
                     st.rerun()
 
-# --- STEP 3: Export Setup ---
-if st.session_state.header_confirmed and st.session_state.devices:
-    with st.expander("📦 Step 3: Export Setup", expanded=True):
-        company = st.text_input("Enter your company name", key="company_name_input")
-        today = pd.Timestamp.today().strftime("%Y%m%d")
-        export_filename = f"{company}_{today}.csv" if company else "export.csv"
-
-        st.subheader("📋 Export Summary")
-        desc_col = next((col for col in st.session_state.df.columns if 'description' in col.lower()), None)
-
-        if desc_col and st.session_state.devices:
-            for device in st.session_state.devices:
-                device_name = device['device_name']
-                location = device['location']
-                device_type = device['device_type']
-                count = st.session_state.df[desc_col].astype(str).str.contains(device_name, case=False, na=False).sum()
-                st.markdown(f"• **{device_name}** → _{device_type}_ → `{location}` — **{count} match(es)**")
-        else:
-            st.info("Waiting for devices to be added and description column to be detected.")
-
-        # --- EXPORT LOGIC FIX ---
-        export_triggered = st.button("📤 Export and Download File")
-        csv_data = None
-
-        if export_triggered and company:
-            output = []
-            mac_col = next((col for col in st.session_state.df.columns if 'mac' in col.lower()), None)
-            sn_col = next((col for col in st.session_state.df.columns if 'serial' in col.lower() or col.lower() == 'sn'), None)
-            fsan_col = next((col for col in st.session_state.df.columns if 'fsan' in col.lower()), None)
-
-            for device in st.session_state.devices:
-                device_name = device["device_name"]
-                location = device["location"]
-                device_type = device["device_type"]
-                profile_type = (
-                    device_profile_name_map.get(device_name.upper(), device_type.upper())
-                    if device_type != "ONT" else "ONT"
-                )
-
-                matches = st.session_state.df[
-                    st.session_state.df[desc_col].astype(str).str.contains(device_name, case=False, na=False)
-                ]
-
-                for _, row in matches.iterrows():
-                    mac = str(row.get(mac_col, "")).strip()
-                    sn = str(row.get(sn_col, "")).strip()
-                    fsan = str(row.get(fsan_col, "")).strip()
-                    if not mac or not sn or not fsan:
-                        continue
-
-                    if profile_type == "ONT":
-                        numbers = (
-                            f"MAC={mac}|SN={sn}|ONT_FSAN={fsan}|ONT_ID=NO VALUE|"
-                            f"ONT_NODENAME=NO VALUE|ONT_PORT={device['ONT_PORT']}|"
-                            f"ONT_PROFILE_ID={device['ONT_PROFILE_ID']}|ONT_MOMENTUM_PASSWORD=NO VALUE"
-                        )
-                    elif profile_type == "CX_ROUTER":
-                        numbers = f"MAC={mac}|SN={sn}|ROUTER_FSAN={fsan}"
-                    elif profile_type == "CX_MESH":
-                        numbers = f"MAC={mac}|SN={sn}|MESH_FSAN={fsan}"
-                    elif profile_type == "CX_SFP":
-                        numbers = f"MAC={mac}|SN={sn}|SIP_FSAN={fsan}"
-                    elif profile_type == "GAM_COAX_ENDPOINT":
-                        numbers = f"MAC={mac}|SN={sn}"
-                    else:
-                        numbers = f"MAC={mac}|SN={sn}|FSAN={fsan}"
-
-                    output.append({
-                        "device_profile": profile_type,
-                        "device_name": device_name,
-                        "device_numbers": numbers,
-                        "inventory_location": location,
-                        "inventory_status": "UNASSIGNED"
-                    })
-
-            if output:
-                df_out = pd.DataFrame(output)
-                csv_data = df_out.to_csv(index=False)
-                st.success(f"✅ Export complete! File ready: `{export_filename}`")
-
-        if csv_data:
-            st.download_button("⬇️ Download CSV", data=csv_data, file_name=export_filename, mime="text/csv")
+# Next step would be re-adding Step 3 Export functionality once Step 2 is confirmed 100% locked in.
