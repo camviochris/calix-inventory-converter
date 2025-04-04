@@ -39,7 +39,11 @@ with st.expander("🧾 Step 1: Upload File & Select Header", expanded=not st.ses
             df.columns = df.columns.str.strip()
             st.session_state.df = df
             st.session_state.step_1_complete = True
-            st.rerun()  # Triggers the UI to reload with Step 1 collapsed
+            st.rerun()
+
+# ✅ Step 1 Success Banner
+if st.session_state.step_1_complete:
+    st.success("✅ Step 1 Complete: Header row was set successfully.")
 
 # Step 2 Placeholder
 if st.session_state.step_1_complete and st.session_state.df is not None:
