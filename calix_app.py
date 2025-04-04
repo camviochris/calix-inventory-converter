@@ -16,8 +16,13 @@ if uploaded_file:
     header_idx = st.radio(
         "Which row contains your column headers?",
         options=df_preview.head(5).index.tolist(),
-        format_func=lambda x: f"Row {x}: {list(df_preview.loc[x].values)}"
+        format_func=lambda x: f"Row {x}",
+        horizontal=True
     )
+
+    with st.expander("🔍 Show row contents"):
+        for i in df_preview.head(5).index:
+            st.text(f"Row {i}: {list(df_preview.loc[i].values)}")
 
     if st.button("✅ Confirm Header Row"):
         df = pd.read_csv(uploaded_file, skiprows=header_idx) if filetype == "csv" else pd.read_excel(uploaded_file, skiprows=header_idx)
