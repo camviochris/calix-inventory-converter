@@ -4,9 +4,11 @@ import io
 import datetime
 from mappings import device_profile_name_map, device_numbers_template_map
 
-# Ensure session state is initialized for exporting
+# Session state initialization
 if "devices" not in st.session_state:
     st.session_state.devices = []
+if "header_confirmed" not in st.session_state:
+    st.session_state.header_confirmed = False
 if "df" not in st.session_state:
     st.session_state.df = None
 if "company_name" not in st.session_state:
@@ -16,6 +18,7 @@ if "company_name" not in st.session_state:
 with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.header_confirmed):
     if st.session_state.header_confirmed:
         st.success("✅ Step 1 completed")
+    
     file = st.file_uploader("Upload your .csv or .xlsx file", type=["csv", "xlsx"])
     df = None
 
@@ -31,7 +34,7 @@ with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.heade
                 df.columns = df.columns.str.strip()
                 st.session_state.df = df
                 st.session_state.header_confirmed = True
-                st.rerun()
+                st.rerun()  # Rerun to refresh the state and move to Step 2
         except Exception as e:
             st.error(f"Error reading file: {e}")
 
@@ -39,89 +42,92 @@ with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.heade
 st.markdown("\n\n")
 
 # Step 2: Collect device info
-step2_expander = st.expander("🔧 Step 2: Add Devices to Convert", expanded=True)
-with step2_expander:
-    if st.session_state.devices:
-        st.success("✅ Step 2 completed")
-    st.markdown("\n")
-    with st.form("device_form"):
-        device_name = st.text_input("Enter device model name ℹ️", help="Found in the Description column of your file")
-        load_defaults = st.form_submit_button("🔍 Look Up Device")
-
-        default_type = "ONT"
-        default_port = ""
-        default_profile_id = ""
-        default_password = "no value"
-        device_found = False
-
-        if load_defaults:
-            st.session_state.device_lookup = {"device_name": device_name, "warning_shown": False}
-            if device_name in device_profile_name_map:
-                device_found = True
-                default_type = device_profile_name_map[device_name]
-                template = device_numbers_template_map.get(device_name, "")
-                match_port = re.search(r"ONT_PORT=([^|]*)", template)
-                match_profile = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
-                default_port = match_port.group(1) if match_port else ""
-                default_profile_id = match_profile.group(1) if match_profile else ""
-
-        device_types = ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"]
-        mapped_type = device_profile_name_map.get(device_name)
-        default_index = device_types.index(mapped_type) if mapped_type in device_types else 0
-        selected_index = st.selectbox("What type of device is this? ℹ️", device_types, index=default_index if load_defaults else 0, key="device_type_selector", help="Make sure this matches how your system provisions this device")
-        device_type = selected_index if isinstance(selected_index, str) else device_types[default_index]
-
-        # If device not found and selected as ONT
-        if load_defaults and not device_found and device_type == "ONT":
-            st.warning("🚧 This device model name was not found in memory. You can still proceed as ONT by providing required settings.\n\nPlease provide the `ONT_PORT` and `ONT_PROFILE_ID` based on how it's setup in your system.\nIf this device is not in your Camvio inventory, it may fail provisioning. Please contact Camvio Support to add it.")
-
-        if load_defaults and device_name in device_profile_name_map and mapped_type != device_type and mapped_type == "ONT":
-            st.warning(f"⚠️ This device is typically identified as `{mapped_type}`. Since you're using `{device_type}`, the system will still treat this as `{mapped_type}` behind the scenes for provisioning. Please verify that your provisioning is properly configured to handle this setup.")
-
-        location = st.selectbox("Where should it be stored? ℹ️", ["WAREHOUSE", "Custom..."], help="Camvio must have this location EXACTLY as shown. Case and spelling matter.")
-        if location == "Custom...":
-            location = st.text_input("Enter custom location (must match Camvio EXACTLY)")
-            st.warning("⚠️ This must exactly match the spelling/case in Camvio or it will fail.")
-
-        custom_ont_port = ""
-        custom_profile_id = ""
-        if device_type == "ONT":
-            st.markdown("#### Customize ONT Settings (required for custom devices)")
-            custom_ont_port = st.text_input("ONT_PORT ℹ️", value=default_port, help="The interface this ONT uses to connect (e.g., G1 or x1)")
-            custom_profile_id = st.text_input("ONT_PROFILE_ID ℹ️", value=default_profile_id or device_name, help="Provisioning profile used in your system")
-
-        add_device = st.form_submit_button("➕ Add Device")
-
-        if add_device and device_name:
-            st.session_state.devices.append({
-                "device_name": device_name.strip(),
-                "device_type": device_type,
-                "location": location.strip(),
-                "ONT_PORT": custom_ont_port.strip() if device_type == "ONT" else "",
-                "ONT_PROFILE_ID": custom_profile_id.strip() if device_type == "ONT" else "",
-                "ONT_MOMENTUM_PASSWORD": "NO VALUE"
-            })
-
-    if st.session_state.devices:
+if st.session_state.header_confirmed:
+    step2_expander = st.expander("🔧 Step 2: Add Devices to Convert", expanded=True)
+    with step2_expander:
+        if st.session_state.devices:
+            st.success("✅ Step 2 completed")
+        
         st.markdown("\n")
-        st.write("### Devices Selected:")
-        for i, d in enumerate(st.session_state.devices):
-            cols = st.columns([5, 1])
-            with cols[0]:
-                st.write(f"🔹 {d['device_name']} → {d['device_type']} @ {d['location']}")
-                if d["device_type"] == "ONT":
-                    st.code(f"ONT_PORT: {d['ONT_PORT']}\nONT_PROFILE_ID: {d['ONT_PROFILE_ID']}\nONT_MOMENTUM_PASSWORD: NO VALUE", language="text")
-            with cols[1]:
-                if st.button("🗑️ Remove", key=f"remove_{i}"):
-                    st.session_state.devices.pop(i)
-                    st.rerun()
+        with st.form("device_form"):
+            device_name = st.text_input("Enter device model name ℹ️", help="Found in the Description column of your file")
+            load_defaults = st.form_submit_button("🔍 Look Up Device")
+
+            default_type = "ONT"
+            default_port = ""
+            default_profile_id = ""
+            default_password = "no value"
+            device_found = False
+
+            if load_defaults:
+                st.session_state.device_lookup = {"device_name": device_name, "warning_shown": False}
+                if device_name in device_profile_name_map:
+                    device_found = True
+                    default_type = device_profile_name_map[device_name]
+                    template = device_numbers_template_map.get(device_name, "")
+                    match_port = re.search(r"ONT_PORT=([^|]*)", template)
+                    match_profile = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
+                    default_port = match_port.group(1) if match_port else ""
+                    default_profile_id = match_profile.group(1) if match_profile else ""
+
+            device_types = ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"]
+            mapped_type = device_profile_name_map.get(device_name)
+            default_index = device_types.index(mapped_type) if mapped_type in device_types else 0
+            selected_index = st.selectbox("What type of device is this? ℹ️", device_types, index=default_index if load_defaults else 0, key="device_type_selector", help="Make sure this matches how your system provisions this device")
+            device_type = selected_index if isinstance(selected_index, str) else device_types[default_index]
+
+            # If device not found and selected as ONT
+            if load_defaults and not device_found and device_type == "ONT":
+                st.warning("🚧 This device model name was not found in memory. You can still proceed as ONT by providing required settings.\n\nPlease provide the `ONT_PORT` and `ONT_PROFILE_ID` based on how it's setup in your system.\nIf this device is not in your Camvio inventory, it may fail provisioning. Please contact Camvio Support to add it.")
+
+            if load_defaults and device_name in device_profile_name_map and mapped_type != device_type and mapped_type == "ONT":
+                st.warning(f"⚠️ This device is typically identified as `{mapped_type}`. Since you're using `{device_type}`, the system will still treat this as `{mapped_type}` behind the scenes for provisioning. Please verify that your provisioning is properly configured to handle this setup.")
+
+            location = st.selectbox("Where should it be stored? ℹ️", ["WAREHOUSE", "Custom..."], help="Camvio must have this location EXACTLY as shown. Case and spelling matter.")
+            if location == "Custom...":
+                location = st.text_input("Enter custom location (must match Camvio EXACTLY)")
+                st.warning("⚠️ This must exactly match the spelling/case in Camvio or it will fail.")
+
+            custom_ont_port = ""
+            custom_profile_id = ""
+            if device_type == "ONT":
+                st.markdown("#### Customize ONT Settings (required for custom devices)")
+                custom_ont_port = st.text_input("ONT_PORT ℹ️", value=default_port, help="The interface this ONT uses to connect (e.g., G1 or x1)")
+                custom_profile_id = st.text_input("ONT_PROFILE_ID ℹ️", value=default_profile_id or device_name, help="Provisioning profile used in your system")
+
+            add_device = st.form_submit_button("➕ Add Device")
+
+            if add_device and device_name:
+                st.session_state.devices.append({
+                    "device_name": device_name.strip(),
+                    "device_type": device_type,
+                    "location": location.strip(),
+                    "ONT_PORT": custom_ont_port.strip() if device_type == "ONT" else "",
+                    "ONT_PROFILE_ID": custom_profile_id.strip() if device_type == "ONT" else "",
+                    "ONT_MOMENTUM_PASSWORD": "NO VALUE"
+                })
+
+        if st.session_state.devices:
+            st.markdown("\n")
+            st.write("### Devices Selected:")
+            for i, d in enumerate(st.session_state.devices):
+                cols = st.columns([5, 1])
+                with cols[0]:
+                    st.write(f"🔹 {d['device_name']} → {d['device_type']} @ {d['location']}")
+                    if d["device_type"] == "ONT":
+                        st.code(f"ONT_PORT: {d['ONT_PORT']}\nONT_PROFILE_ID: {d['ONT_PROFILE_ID']}\nONT_MOMENTUM_PASSWORD: NO VALUE", language="text")
+                with cols[1]:
+                    if st.button("🗑️ Remove", key=f"remove_{i}"):
+                        st.session_state.devices.pop(i)
+                        st.rerun()
 
         st.markdown("---")
         if "company_name" not in st.session_state:
             st.session_state.company_name = ""
 
-step3_expander = st.expander("📦 Step 3: Export Setup", expanded=not st.session_state.get("export_complete", False))
-if "df" in st.session_state:
+# Step 3: Export Setup (This step should only appear after Step 1 and Step 2)
+if st.session_state.header_confirmed and st.session_state.devices:
+    step3_expander = st.expander("📦 Step 3: Export Setup", expanded=True)
     with step3_expander:
         company_input = st.text_input("Enter your company name", value=st.session_state.get("company_name", ""), help="This will be used to name the output file.")
         today_str = datetime.datetime.now().strftime("%Y%m%d")
