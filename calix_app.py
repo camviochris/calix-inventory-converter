@@ -43,32 +43,28 @@ def find_column(columns, patterns):
 uploaded_file = st.file_uploader("Upload your Calix inventory file", type=["csv", "xlsx"])
 company_name = st.text_input("Enter your company name (used for output file name)")
 
-# Session state
-if "header_confirmed" not in st.session_state:
-    st.session_state.header_confirmed = False
+if "step" not in st.session_state:
+    st.session_state.step = 1
 if "df" not in st.session_state:
     st.session_state.df = None
 
-# Step 1: Header selection
-if uploaded_file and not st.session_state.header_confirmed:
+if uploaded_file and st.session_state.step == 1:
     try:
         raw_data = pd.read_csv(uploaded_file, header=None) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file, header=None)
-        st.markdown("### Step 1: Select Header Row")
-        st.dataframe(raw_data.head(5))
-        header_row_index = st.number_input("Which row contains the column headers? (0-indexed)", min_value=0, max_value=4, step=1, value=0)
+        st.markdown("### Step 1: Click the header row")
+        header_idx = st.radio("Select the row that contains your headers:", raw_data.head(5).index, format_func=lambda x: str(list(raw_data.loc[x].values)))
 
         if st.button("Confirm Header Row"):
-            df = pd.read_csv(uploaded_file, skiprows=header_row_index) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file, skiprows=header_row_index)
+            df = pd.read_csv(uploaded_file, skiprows=header_idx) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file, skiprows=header_idx)
             df.columns = df.columns.str.strip()
             st.session_state.df = df
-            st.session_state.header_confirmed = True
+            st.session_state.step = 2
             st.experimental_rerun()
 
     except Exception as e:
         st.error(f"Error reading file: {e}")
 
-# Step 2: Classification
-if st.session_state.header_confirmed and st.session_state.df is not None:
+if st.session_state.step == 2 and st.session_state.df is not None:
     df = st.session_state.df
     st.success("Header row confirmed. Continue with classification.")
 
@@ -79,38 +75,41 @@ if st.session_state.header_confirmed and st.session_state.df is not None:
     description_col = description_guess or st.selectbox("Select Description column", df.columns.tolist())
     serial_col = serial_guess or st.selectbox("Select Serial Number column", df.columns.tolist())
     mac_col = mac_guess or st.selectbox("Select MAC Address column", df.columns.tolist())
-    fsan_col = st.selectbox("Select FSAN column (if any)", ["None"] + df.columns.tolist())
 
     df["Device"] = df[description_col].astype(str).str.strip()
     unique_devices = df["Device"].dropna().unique()
 
-    st.markdown("### Step 3: Classify Devices")
-    device_selections = {}
+    st.markdown("### Step 3: Classify Devices and Set Location")
+    device_config = {}
     for device in sorted(unique_devices):
-        classification = st.selectbox(
-            f"How should '{device}' be classified?",
-            ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"],
-            key=device
-        )
-        device_selections[device] = classification
+        cols = st.columns([3, 2])
+        with cols[0]:
+            classification = st.selectbox(
+                f"Device '{device}' type:",
+                ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"],
+                key=f"type_{device}"
+            )
+        with cols[1]:
+            location = st.selectbox(
+                f"Location for '{device}':",
+                ["WAREHOUSE", "ITG", "Custom..."],
+                key=f"loc_{device}"
+            )
+            if location == "Custom...":
+                location = st.text_input(f"Enter custom location for '{device}'", key=f"custom_loc_{device}")
+        device_config[device] = {"type": classification, "location": location}
 
-    selected_location = st.selectbox("Select location", ["WAREHOUSE", "ITG", "Custom..."])
-    if selected_location == "Custom...":
-        selected_location = st.text_input("Enter custom location")
-        st.warning("⚠️ Custom location must exactly match your system — case and spacing included.")
-        confirmed = st.checkbox("✅ I confirm the custom location is correct")
-    else:
-        confirmed = True
-
-    if company_name and confirmed:
+    if company_name:
         output_rows = []
         for _, row in df.iterrows():
             try:
                 device_name = str(row["Device"]).strip()
-                device_type = device_selections.get(device_name)
                 serial = str(row[serial_col]).strip()
                 mac = str(row[mac_col]).strip()
-                fsan = str(row[fsan_col]).strip() if fsan_col != "None" else ''
+
+                config = device_config.get(device_name)
+                device_type = config["type"]
+                location = config["location"]
 
                 profile = profile_map[device_type]
                 template = template_map[device_type]
@@ -120,7 +119,7 @@ if st.session_state.header_confirmed and st.session_state.df is not None:
                     "device_profile": profile,
                     "device_name": device_name,
                     "device_numbers": device_numbers,
-                    "location": selected_location,
+                    "location": location,
                     "status": default_status
                 })
             except Exception as e:
