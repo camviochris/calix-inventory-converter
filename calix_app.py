@@ -59,9 +59,7 @@ with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.heade
 st.markdown("\n\n")
 
 # Step 2: Collect device info
-if "df" in st.session_state:
-    st.markdown("---")
-    step2_expander = st.expander("🔧 Step 2: Add Devices to Convert", expanded=len(st.session_state.devices) == 0)
+step2_expander = st.expander("🔧 Step 2: Add Devices to Convert", expanded=len(st.session_state.devices) == 0)
 with step2_expander:
     st.success("✅ Step 2 completed") if st.session_state.devices else None
     st.markdown("\n")
@@ -139,8 +137,8 @@ with step2_expander:
 
         st.markdown("---")
         if "company_name" not in st.session_state:
-            st.session_state.company_name = ""
-        step3_expander = st.expander("📦 Step 3: Export Setup", expanded=not st.session_state.get("export_complete", False))
+    st.session_state.company_name = ""
+step3_expander = st.expander("📦 Step 3: Export Setup", expanded=not st.session_state.get("export_complete", False))
 with step3_expander:
         st.session_state.company_name = st.text_input("Enter your company name", value=st.session_state.company_name, help="This will be used to name the output file.")
         today_str = datetime.datetime.now().strftime("%Y%m%d")
@@ -231,4 +229,4 @@ with step3_expander:
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.40</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.41</div>", unsafe_allow_html=True)
