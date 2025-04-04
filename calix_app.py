@@ -66,7 +66,6 @@ if st.session_state.step_1_complete and st.session_state.df is not None:
     mac_col = find_column(df.columns, [r'mac', r'mac address'])
     fsan_col = find_column(df.columns, [r'fsan'])
 
-    # Fallbacks if not auto-detected
     if not description_col:
         description_col = st.selectbox("Select Description column", df.columns.tolist())
     if not serial_col:
@@ -76,13 +75,43 @@ if st.session_state.step_1_complete and st.session_state.df is not None:
     if not fsan_col:
         fsan_col = st.selectbox("Select FSAN column (or choose None)", ["None"] + df.columns.tolist())
 
-    # Extract device name from Description
-    def extract_device_name(description):
-        known_prefixes = ['GigaSpire', 'GigaPro', 'GPON', 'GS', 'GM', 'GP', 'XGS', '812G', '803G', 'G1001', 'SFP']
-        for prefix in known_prefixes:
-            if prefix in description:
-                return next((word for word in description.split() if prefix in word), description[:15])
-        return re.split(r'[ ,;]', description.strip())[0]
+    # Extract device name (mirroring your real logic)
+    def extract_device_name(desc_column):
+        known_starts = {
+            'XGS ONT SFP+': 'SFP-XGS',
+            'GigaSpire u4xg, GS2128XG': 'GS2128XG',
+            'GigaSpire BLAST u10xe GS4237': 'GS4237',
+            'GigaSpire BLAST u6txg, GS5229XG': 'GS5229XG',
+            'GigaSpire BLAST u6t, GS5229E': 'GS5229E',
+            'GigaPro GPR2032H': 'GPR2032H',
+            'GigaPro GPR8802x': 'GPR8802X',
+            'GigaSpire u4hm, GM1028H': 'GM1028H',
+            'GPON ONT SFP Module': 'SFP-GPON',
+            '812G-1 GigaHub': '812G',
+            'GS2028E': 'GS2028E',
+            'GP1100G GigaPoint': 'GP1100G',
+            'GigaSpire u6.3': 'GS4229E',
+            'G1001-C': 'G1001-C',
+            'GigaSpire 7u10t, 10GE Tri Gateway, GS5239E': 'GS5239E'
+        }
+
+        for start_pattern, device in known_starts.items():
+            if desc_column.startswith(start_pattern):
+                return device
+
+        # Fallback
+        comma_pos = desc_column.find(',')
+        space_pos = desc_column.find(' ')
+        semi_pos = desc_column.find(';')
+        if comma_pos == -1:
+            comma_pos = len(desc_column)
+        delimiter_pos = comma_pos
+        if space_pos != -1 and space_pos < delimiter_pos:
+            delimiter_pos = space_pos
+        if semi_pos != -1 and semi_pos < delimiter_pos:
+            delimiter_pos = semi_pos
+
+        return desc_column[:delimiter_pos].strip()
 
     df["Device Name"] = df[description_col].astype(str).apply(extract_device_name)
     unique_devices = sorted(df["Device Name"].dropna().unique())
