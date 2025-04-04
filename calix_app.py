@@ -79,7 +79,7 @@ with step2_expander:
             # Store the ONT_PORT and ONT_PROFILE_ID to session state
             if default_type == "ONT":
                 st.session_state.custom_ont_port = default_port
-                st.session_state.custom_profile_id = default_profile_id
+                st.session_state.custom_profile_id = default_profile_id.upper() if default_profile_id else ""
 
         device_types = ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"]
         mapped_type = device_profile_name_map.get(device_name)
@@ -114,7 +114,7 @@ with step2_expander:
                 "device_type": device_type,
                 "location": location.strip(),
                 "ONT_PORT": st.session_state.custom_ont_port.strip() if device_type == "ONT" else "",
-                "ONT_PROFILE_ID": custom_profile_id.strip() if device_type == "ONT" else "",
+                "ONT_PROFILE_ID": custom_profile_id.strip().upper() if device_type == "ONT" else "",
                 "ONT_MOMENTUM_PASSWORD": "NO VALUE"
             })
 
