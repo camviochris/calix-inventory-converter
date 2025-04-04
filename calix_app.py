@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import re
 import io
 import datetime
 from mappings import device_profile_name_map, device_numbers_template_map
@@ -61,14 +62,24 @@ if st.session_state.header_confirmed:
 
             if load_defaults:
                 st.session_state.device_lookup = {"device_name": device_name, "warning_shown": False}
+                
+                # Normalize the device name to uppercase to match keys in the mapping
+                device_name = device_name.upper()
+
+                # Check if the device exists in the mapping
                 if device_name in device_profile_name_map:
                     device_found = True
                     default_type = device_profile_name_map[device_name]
                     template = device_numbers_template_map.get(device_name, "")
-                    match_port = re.search(r"ONT_PORT=([^|]*)", template)
-                    match_profile = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
-                    default_port = match_port.group(1) if match_port else ""
-                    default_profile_id = match_profile.group(1) if match_profile else ""
+
+                    # Check if template is valid
+                    if not template:
+                        st.error(f"❌ No template found for the device: {device_name}. Please check if this device is supported or contact support.")
+                    else:
+                        match_port = re.search(r"ONT_PORT=([^|]*)", template)
+                        match_profile = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
+                        default_port = match_port.group(1) if match_port else ""
+                        default_profile_id = match_profile.group(1) if match_profile else ""
 
             device_types = ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"]
             mapped_type = device_profile_name_map.get(device_name)
@@ -94,6 +105,10 @@ if st.session_state.header_confirmed:
                 st.markdown("#### Customize ONT Settings (required for custom devices)")
                 custom_ont_port = st.text_input("ONT_PORT ℹ️", value=default_port, help="The interface this ONT uses to connect (e.g., G1 or x1)")
                 custom_profile_id = st.text_input("ONT_PROFILE_ID ℹ️", value=default_profile_id or device_name, help="Provisioning profile used in your system")
+
+            # Ensure the profile ID is uppercase
+            if custom_profile_id:
+                custom_profile_id = custom_profile_id.upper()
 
             add_device = st.form_submit_button("➕ Add Device")
 
