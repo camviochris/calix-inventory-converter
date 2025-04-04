@@ -61,12 +61,10 @@ if st.session_state.header_confirmed:
             if matched_key:
                 mapped_type = device_profile_name_map.get(matched_key)
 
-                # Warn only if device is ONT and user selected something else
                 if mapped_type == "ONT" and st.session_state.device_type_input != "ONT":
                     st.session_state.lookup_warning = (
                         f"⚠️ This device is typically identified as `ONT`.\n"
-                        f"You've selected `{st.session_state.device_type_input}`. This may cause provisioning issues.\n"
-                        f"Please verify your system is configured to support this setup."
+                        f"You've selected `{st.session_state.device_type_input}`. This may cause provisioning issues."
                     )
                 else:
                     st.session_state.lookup_warning = ""
@@ -115,11 +113,10 @@ if st.session_state.header_confirmed:
                     st.session_state.devices.pop(i)
                     st.rerun()
 
-# --- STEP 3: Export Setup (Preview only) ---
+# --- STEP 3: Export Setup ---
 if st.session_state.header_confirmed and st.session_state.devices:
     with st.expander("📦 Step 3: Export Setup", expanded=True):
-        st.text_input("Enter your company name", key="company_name_input")
-        company = st.session_state.company_name_input.strip()
+        company = st.text_input("Enter your company name", key="company_name_input")
         today = pd.Timestamp.today().strftime("%Y%m%d")
         export_filename = f"{company}_{today}.csv" if company else "export.csv"
 
@@ -136,4 +133,65 @@ if st.session_state.header_confirmed and st.session_state.devices:
         else:
             st.info("Waiting for devices to be added and description column to be detected.")
 
-        st.button("📤 Export and Download File")
+        if st.button("📤 Export and Download File"):
+            if not company:
+                st.error("❌ Company name is required to generate the file.")
+            else:
+                output = []
+                mac_col = next((col for col in st.session_state.df.columns if 'mac' in col.lower()), None)
+                sn_col = next((col for col in st.session_state.df.columns if 'serial' in col.lower() or col.lower() == 'sn'), None)
+                fsan_col = next((col for col in st.session_state.df.columns if 'fsan' in col.lower()), None)
+
+                for device in st.session_state.devices:
+                    device_name = device["device_name"]
+                    location = device["location"]
+                    device_type = device["device_type"]
+                    profile_type = (
+                        device_profile_name_map.get(device_name.upper(), device_type.upper())
+                        if device_type != "ONT" else "ONT"
+                    )
+
+                    matches = st.session_state.df[
+                        st.session_state.df[desc_col].astype(str).str.contains(device_name, case=False, na=False)
+                    ]
+
+                    for _, row in matches.iterrows():
+                        mac = str(row.get(mac_col, "")).strip()
+                        sn = str(row.get(sn_col, "")).strip()
+                        fsan = str(row.get(fsan_col, "")).strip()
+
+                        if not mac or not sn or not fsan:
+                            continue
+
+                        if profile_type == "ONT":
+                            numbers = (
+                                f"MAC={mac}|SN={sn}|ONT_FSAN={fsan}|ONT_ID=NO VALUE|"
+                                f"ONT_NODENAME=NO VALUE|ONT_PORT={device['ONT_PORT']}|"
+                                f"ONT_PROFILE_ID={device['ONT_PROFILE_ID']}|ONT_MOMENTUM_PASSWORD=NO VALUE"
+                            )
+                        elif profile_type == "CX_ROUTER":
+                            numbers = f"MAC={mac}|SN={sn}|ROUTER_FSAN={fsan}"
+                        elif profile_type == "CX_MESH":
+                            numbers = f"MAC={mac}|SN={sn}|MESH_FSAN={fsan}"
+                        elif profile_type == "CX_SFP":
+                            numbers = f"MAC={mac}|SN={sn}|SIP_FSAN={fsan}"
+                        elif profile_type == "GAM_COAX_ENDPOINT":
+                            numbers = f"MAC={mac}|SN={sn}"
+                        else:
+                            numbers = f"MAC={mac}|SN={sn}|FSAN={fsan}"
+
+                        output.append({
+                            "device_profile": profile_type,
+                            "device_name": device_name,
+                            "device_numbers": numbers,
+                            "inventory_location": location,
+                            "inventory_status": "UNASSIGNED"
+                        })
+
+                if output:
+                    df_out = pd.DataFrame(output)
+                    csv_data = df_out.to_csv(index=False)
+                    st.download_button("⬇️ Download CSV", data=csv_data, file_name=export_filename, mime="text/csv")
+                    st.success(f"✅ Export complete! File ready: `{export_filename}`")
+                else:
+                    st.warning("No valid rows found for export. Please check your file and selected devices.")
