@@ -65,8 +65,6 @@ if st.session_state.header_confirmed:
 
             default_port = ""
             default_profile = device_name.upper()
-            warning = ""
-
             if lookup_clicked and device_name:
                 mapped_type = device_profile_name_map.get(device_name.upper())
                 template = device_numbers_template_map.get(device_name.upper())
@@ -76,7 +74,6 @@ if st.session_state.header_confirmed:
                     default_port = port_match.group(1) if port_match else ""
                     default_profile = profile_match.group(1).upper() if profile_match else default_profile
 
-                # Normalize device types for comparison
                 normalize_map = {
                     "CX_ROUTER": "ROUTER",
                     "CX_MESH": "MESH",
@@ -85,16 +82,12 @@ if st.session_state.header_confirmed:
                     "ONT": "ONT"
                 }
                 mapped_type_normalized = normalize_map.get(mapped_type, mapped_type)
-                selected_type_normalized = selected_type
-
-                if mapped_type and mapped_type_normalized != selected_type_normalized:
+                if mapped_type and mapped_type_normalized != selected_type:
                     if selected_type == "ONT":
-                        st.warning(f"⚠️ This device is typically mapped as **{mapped_type_normalized}**. "
-                                   f"You selected **ONT**, which could affect provisioning. "
-                                   f"Please verify your setup supports this device as an ONT.")
+                        st.warning(f"⚠️ This device is typically mapped as **{mapped_type_normalized}**, not **ONT**. "
+                                   f"This could affect provisioning. Make sure your system supports it.")
                     else:
-                        st.info(f"ℹ️ Note: This device is usually mapped as **{mapped_type_normalized}**, "
-                                f"but you've selected **{selected_type_normalized}**. Make sure your system is set up for this.")
+                        st.info(f"ℹ️ This device is typically mapped as **{mapped_type_normalized}**. You selected **{selected_type}**.")
 
             if selected_type == "ONT":
                 ont_port = st.text_input("ONT_PORT", value=default_port)
@@ -126,4 +119,61 @@ if st.session_state.header_confirmed:
                         st.session_state.devices.pop(idx)
                         st.rerun()
 
-# Step 3 is unchanged — only Step 2 logic was touched.
+# --- Step 3: Export ---
+if st.session_state.df is not None and st.session_state.devices:
+    with st.expander("📤 Step 3: Export File", expanded=True):
+        st.session_state.company_name = st.text_input("Enter your company name", value=st.session_state.company_name)
+        today_str = datetime.datetime.now().strftime("%Y%m%d")
+        file_name = f"{st.session_state.company_name}_{today_str}.csv" if st.session_state.company_name else "output.csv"
+
+        st.markdown("### 📦 Export Overview")
+        for d in st.session_state.devices:
+            df = st.session_state.df
+            desc_col = next((col for col in df.columns if "description" in col.lower()), None)
+            count = df[desc_col].astype(str).str.contains(d["device_name"], case=False, na=False).sum()
+            st.markdown(f"- **{d['device_name']}** → {d['device_type']} @ {d['location']} — `{count}` records")
+
+        st.markdown("---")
+        if st.button("📥 Export & Download File"):
+            output = io.StringIO()
+            output.write("device_profile,device_name,device_numbers,inventory_location,inventory_status\n")
+
+            df = st.session_state.df
+            desc_col = next((col for col in df.columns if "description" in col.lower()), None)
+            mac_col = next((col for col in df.columns if "mac" in col.lower()), None)
+            sn_col = next((col for col in df.columns if "serial" in col.lower() or "sn" in col.lower()), None)
+            fsan_col = next((col for col in df.columns if "fsan" in col.lower()), None)
+
+            for device in st.session_state.devices:
+                matches = df[df[desc_col].astype(str).str.contains(device["device_name"], case=False, na=False)]
+                profile_type = device_profile_name_map.get(device["device_name"].upper(), f"CX_{device['device_type']}")
+                for _, row in matches.iterrows():
+                    mac = str(row.get(mac_col, "NO VALUE")).strip()
+                    sn = str(row.get(sn_col, "NO VALUE")).strip()
+                    fsan = str(row.get(fsan_col, "NO VALUE")).strip()
+                    if profile_type == "ONT":
+                        numbers = f"MAC={mac}|SN={sn}|ONT_FSAN={fsan}|ONT_ID=NO VALUE|ONT_NODENAME=NO VALUE|ONT_PORT={device['ONT_PORT']}|ONT_PROFILE_ID={device['ONT_PROFILE_ID']}|ONT_MOMENTUM_PASSWORD=NO VALUE"
+                    elif profile_type == "CX_ROUTER":
+                        numbers = f"MAC={mac}|SN={sn}|ROUTER_FSAN={fsan}"
+                    elif profile_type == "CX_MESH":
+                        numbers = f"MAC={mac}|SN={sn}|MESH_FSAN={fsan}"
+                    elif profile_type == "CX_SFP":
+                        numbers = f"MAC={mac}|SN={sn}|SIP_FSAN={fsan}"
+                    elif profile_type == "GAM_COAX_ENDPOINT":
+                        numbers = f"MAC={mac}|SN={sn}"
+                    else:
+                        numbers = f"MAC={mac}|SN={sn}|FSAN={fsan}"
+
+                    output.write(f"{profile_type},{device['device_name']},{numbers},{device['location']},UNASSIGNED\n")
+
+            st.download_button("⬇️ Download File", data=output.getvalue(), file_name=file_name, mime="text/csv")
+
+
+# --- Footer ---
+st.markdown("---")
+st.markdown(
+    "<div style='text-align: right; font-size: 0.75em; color: gray;'>"
+    "Last updated: 2025-04-04 • Rev: v2.0"
+    "</div>",
+    unsafe_allow_html=True,
+)
