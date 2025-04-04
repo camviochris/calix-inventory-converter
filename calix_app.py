@@ -7,6 +7,37 @@ from mappings import device_profile_name_map, device_numbers_template_map
 
 st.set_page_config(page_title="Calix Inventory Import Tool", layout="wide")
 st.title("📥 Calix Inventory Import Tool")
+with st.expander("ℹ️ How to Use This Tool", expanded=False):
+    st.markdown("""
+### 📋 Step-by-Step Instructions
+
+1. **Upload the File You Received from Calix**
+   - Upload the `.csv` or `.xlsx` inventory file that Calix provided.
+   - Preview the first few rows and select which row contains the **column headers** (like Serial Number, MAC Address, etc.).
+
+2. **Add Devices to Convert**
+   - In the **Device Model Name** field, enter the model (as listed in the **Description** column of the file).
+   - Select the **Type of Device** (ONT, Router, Mesh, etc.).
+   - Choose where it should be stored:
+     - Select `WAREHOUSE` (default) or
+     - Select `Custom` and enter the exact location name from your Camvio system.
+   - ⚠️ If you choose **Custom**, nothing happens right away — click `🔍 Look Up Device` to continue.
+   - If the device model is recognized, default ONT settings will be filled in automatically.
+   - If it's not found, you'll be able to enter the required ONT settings manually (ONT only).
+
+3. **Export the File**
+   - Enter your **company name** to be used in the final file name.
+   - You'll see a breakdown of how many records match each device.
+   - Click `📥 Export & Download File` to generate your converted inventory file.
+
+---
+
+🧠 **Important Notes**
+- Only **ONTs** need provisioning info (PORT and PROFILE).
+- Custom locations must **exactly match** what's configured in **Camvio Web** (including case and spacing).
+- If something doesn't look right, use the **"Start Over"** button in the sidebar to reset the tool.
+""")
+
 st.markdown("🔒 **All data is processed in-memory. No files or customer data are stored.**")
 
 # --- Session State Initialization ---
