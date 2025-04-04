@@ -114,7 +114,7 @@ if "df" in st.session_state:
                 "location": location.strip(),
                 "ONT_PORT": custom_ont_port.strip(),
                 "ONT_PROFILE_ID": custom_profile_id.strip(),
-                "ONT_MOMENTUM_PASSWORD": "no value"
+                "ONT_MOMENTUM_PASSWORD": "NO VALUE"
             })
 
     if st.session_state.devices:
@@ -125,7 +125,7 @@ if "df" in st.session_state:
             with cols[0]:
                 st.write(f"🔹 {d['device_name']} → {d['device_type']} @ {d['location']}")
                 if d["device_type"] == "ONT":
-                    st.code(f"ONT_PORT: {d['ONT_PORT']}\nONT_PROFILE_ID: {d['ONT_PROFILE_ID']}\nONT_MOMENTUM_PASSWORD: no value", language="text")
+                    st.code(f"ONT_PORT: {d['ONT_PORT']}\nONT_PROFILE_ID: {d['ONT_PROFILE_ID']}\nONT_MOMENTUM_PASSWORD: NO VALUE", language="text")
             with cols[1]:
                 if st.button("🗑️ Remove", key=f"remove_{i}"):
                     st.session_state.devices.pop(i)
@@ -138,14 +138,20 @@ if "df" in st.session_state:
         export_filename = f"{company_name}_{today_str}.csv" if company_name else "output.csv"
 
         # Device count summary
-        type_counts = Counter([d["device_name"] for d in st.session_state.devices])
         st.subheader("📊 Device Count Summary")
-        for name, count in type_counts.items():
-            st.markdown(f"- **{name}**: {count} devices")
+
+        desc_col = next((col for col in st.session_state.df.columns if 'description' in col.lower()), None)
+        if desc_col:
+            for d in st.session_state.devices:
+                device_model = d["device_name"]
+                match_count = st.session_state.df[desc_col].astype(str).str.contains(device_model, case=False, na=False).sum()
+                st.markdown(f"- **{device_model}**: {match_count} matching records found in uploaded file")
+        else:
+            st.warning("Could not locate a Description column to match device names.")
 
         # Placeholder for next: export button and logic
         st.markdown("\nExport logic coming next...")
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.24</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.26</div>", unsafe_allow_html=True)
