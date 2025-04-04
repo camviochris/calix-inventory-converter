@@ -91,11 +91,7 @@ if "df" in st.session_state:
             st.warning("🚧 This device model name was not found in memory. You can still proceed as ONT by providing required settings.\n\nPlease provide the `ONT_PORT` and `ONT_PROFILE_ID` based on how it's setup in your system.\nIf this device is not in your Camvio inventory, it may fail provisioning. Please contact Camvio Support to add it.")
 
         if load_defaults and device_name in device_profile_name_map and mapped_type != device_type:
-            st.warning(f"⚠️ This device is typically identified as `{mapped_type}`.
-
-Since you're using `{device_type}`, the system will still treat this as `{mapped_type}` behind the scenes for provisioning.
-
-Please verify that your provisioning is properly configured to handle this setup.")
+            st.warning(f"⚠️ This device is typically identified as `{mapped_type}`. Since you're using `{device_type}`, the system will still treat this as `{mapped_type}` behind the scenes for provisioning. Please verify that your provisioning is properly configured to handle this setup.")
 
         location = st.selectbox("Where should it be stored? ℹ️", ["WAREHOUSE", "Custom..."], help="Camvio must have this location EXACTLY as shown. Case and spelling matter.")
         if location == "Custom...":
@@ -194,4 +190,4 @@ Please verify that your provisioning is properly configured to handle this setup
 
 # Footer
 st.markdown("---")
-st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.29</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: right; font-size: 0.75em; color: gray;'>Last updated: 2025-04-03 • Rev: v2.30</div>", unsafe_allow_html=True)
