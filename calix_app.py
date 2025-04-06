@@ -1,49 +1,66 @@
 import streamlit as st
 import pandas as pd
-import datetime
 import io
+import datetime
 import re
 from mappings import device_profile_name_map, device_numbers_template_map
 
+# Page config
 st.set_page_config(page_title="Calix Inventory Import Tool", layout="wide")
 st.title("📥 Calix Inventory Import Tool")
-st.info("🔒 No files or data are stored. All processing is done in memory.")
 
-# 🔄 Reset App Button
-if st.button("🔄 Reset Tool"):
-    for k in list(st.session_state.keys()):
-        del st.session_state[k]
-    st.rerun()
-
-# 📘 Help / Instructions
+# Help Section
 with st.expander("ℹ️ How to Use This Tool", expanded=False):
-    st.markdown("### Step-by-Step")
-    st.markdown("1. **Upload a file** (.csv or .xlsx) and select the correct header row.")
-    st.markdown("2. **Add devices**: Enter model, select device type, and set location.")
-    st.markdown("3. **Export**: Enter your company name and download the formatted file.")
-    st.markdown("🔁 Use the **Reset Tool** if you need to start over.")
-    st.markdown("📨 Contact Camvio Support to add new devices to your system if needed.")
+    st.markdown("""
+### 🧾 What This Tool Does
+This tool helps convert your Calix inventory spreadsheet (CSV or Excel) into a properly formatted file for Camvio.
 
-# 🔧 Initialize Session State
-st.session_state.setdefault("devices", [])
-st.session_state.setdefault("header_confirmed", False)
-st.session_state.setdefault("device_lookup", {})
-st.session_state.setdefault("export_complete", False)
-st.session_state.setdefault("company_name", "")
+All processing is done **in-memory** — no data is saved or stored.
 
-# 📁 Step 1: Upload File
+---
+
+### 🔄 Step-by-Step Instructions
+
+1. **Upload your file**  
+   - The first 5 rows are shown.  
+   - Choose the row that contains headers (e.g., `Serial Number`, `MAC`, `Description`, `FSAN`).
+
+2. **Add Devices to Convert**  
+   - Type the device model name (e.g., `803G`, `GS4227E`).  
+   - Select the device type (ONT, ROUTER, MESH, etc).  
+   - If the device is an ONT, you’ll see `ONT_PORT` and `ONT_PROFILE_ID`.
+   - Set storage location: `WAREHOUSE` or enter a custom one (**must match Camvio exactly**).
+
+3. **Export File**  
+   - Enter your company name.  
+   - Review a summary of all device types and total records found.  
+   - Click export to download the `.csv`.
+
+---
+
+### ⚠️ Important Notes
+
+- **ONTs** need valid `ONT_PORT` and `ONT_PROFILE_ID` for provisioning.
+- **Custom locations** must exactly match Camvio Web.
+- If your device isn't found, enter settings manually and verify with Support.
+
+---
+""")
+
+# Init session state
+for key in ["devices", "header_confirmed", "df", "company_name"]:
+    if key not in st.session_state:
+        st.session_state[key] = [] if key == "devices" else False if key == "header_confirmed" else "" if key == "company_name" else None
+
+# Step 1: File upload
 with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.header_confirmed):
-    if st.session_state.header_confirmed:
-        st.success("✅ Step 1 complete")
-
-    file = st.file_uploader("Upload .csv or .xlsx", type=["csv", "xlsx"])
-
+    file = st.file_uploader("Upload your CSV or Excel file", type=["csv", "xlsx"])
     if file:
         try:
             df_preview = pd.read_csv(file, header=None) if file.name.endswith(".csv") else pd.read_excel(file, header=None)
             st.dataframe(df_preview.head())
 
-            header_row = st.radio("Select the header row:", df_preview.index[:5])
+            header_row = st.radio("Select the row containing headers", df_preview.index[:5])
             if st.button("✅ Set Header Row"):
                 df = pd.read_csv(file, skiprows=header_row) if file.name.endswith(".csv") else pd.read_excel(file, skiprows=header_row)
                 df.columns = df.columns.str.strip()
@@ -53,108 +70,98 @@ with st.expander("📁 Step 1: Upload File", expanded=not st.session_state.heade
         except Exception as e:
             st.error(f"Error loading file: {e}")
 
-# 🔧 Step 2: Add Devices
-if st.session_state.header_confirmed:
-    with st.expander("🧩 Step 2: Add Devices to Convert", expanded=True):
+# Step 2: Add devices
+if st.session_state.header_confirmed and st.session_state.df is not None:
+    with st.expander("🔧 Step 2: Add Devices to Convert", expanded=True):
         with st.form("device_form"):
-            device_name = st.text_input("Enter Device Model Name").strip()
-            device_name_upper = device_name.upper()
+            device_name = st.text_input("Device model name (e.g. 803G, GS4227E)").upper().strip()
+            default_type = device_profile_name_map.get(device_name, "ONT")
+            device_type = st.selectbox("Device type", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"], index=["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"].index(default_type))
 
-            lookup_btn = st.form_submit_button("🔍 Look Up Device")
-            matched_type = device_profile_name_map.get(device_name_upper, None)
-            matched_template = device_numbers_template_map.get(device_name_upper, "")
+            # Warn if mismatch
+            expected_type = device_profile_name_map.get(device_name)
+            if expected_type and device_type != expected_type.replace("CX_", ""):
+                st.warning(f"⚠️ This device is typically mapped as {expected_type}. You selected {device_type}. Ensure your provisioning system is configured accordingly.")
 
+            location = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom"])
+            if location == "Custom":
+                location = st.text_input("Enter custom location (must match Camvio exactly)")
+                st.warning("⚠️ Custom location must match Camvio exactly (case and spacing).")
+
+            # ONT-specific fields
             ont_port = ""
-            profile_id = ""
-
-            if matched_template:
-                ont_port_match = re.search(r"ONT_PORT=([^|]*)", matched_template)
-                profile_id_match = re.search(r"ONT_PROFILE_ID=([^|]*)", matched_template)
-                ont_port = ont_port_match.group(1).strip() if ont_port_match else ""
-                profile_id = profile_id_match.group(1).strip().upper() if profile_id_match else device_name_upper
-
-            device_type = st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"])
-
-            if lookup_btn and matched_type and matched_type != f"CX_{device_type}" and device_type == "ONT":
-                st.warning(f"⚠️ This device is typically identified as `{matched_type}`. You selected `{device_type}`. Make sure this device is configured correctly in your system.")
-
-            location_type = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom..."])
-            location = location_type
-            if location_type == "Custom...":
-                location = st.text_input("Enter custom location (must match Camvio EXACTLY)")
-                st.warning("⚠️ Location name must match EXACTLY as shown in Camvio. Case and spelling must match.")
-
+            ont_profile_id = ""
             if device_type == "ONT":
-                ont_port = st.text_input("ONT_PORT", value=ont_port)
-                profile_id = st.text_input("ONT_PROFILE_ID", value=profile_id.upper())
+                template = device_numbers_template_map.get(device_name, "")
+                match_port = re.search(r"ONT_PORT=([^|]*)", template)
+                match_profile = re.search(r"ONT_PROFILE_ID=([^|]*)", template)
+                ont_port = st.text_input("ONT_PORT", value=match_port.group(1) if match_port else "")
+                ont_profile_id = st.text_input("ONT_PROFILE_ID", value=match_profile.group(1).upper() if match_profile else device_name.upper())
 
             if st.form_submit_button("➕ Add Device"):
                 st.session_state.devices.append({
-                    "device_name": device_name_upper,
+                    "device_name": device_name,
                     "device_type": device_type,
                     "location": location,
                     "ONT_PORT": ont_port,
-                    "ONT_PROFILE_ID": profile_id,
+                    "ONT_PROFILE_ID": ont_profile_id,
                     "ONT_MOMENTUM_PASSWORD": "NO VALUE"
                 })
-                st.success("Device added successfully!")
+                st.success(f"{device_name} added successfully.")
 
-        # List of devices
+        # Show selected
         if st.session_state.devices:
             st.markdown("### Devices Selected:")
             for i, d in enumerate(st.session_state.devices):
-                st.write(f"🔹 {d['device_name']} → {d['device_type']} @ {d['location']}")
-                if d["device_type"] == "ONT":
+                st.markdown(f"- **{d['device_name']}** ({d['device_type']}) → `{d['location']}`")
+                if d['device_type'] == "ONT":
                     st.code(f"ONT_PORT: {d['ONT_PORT']}\nONT_PROFILE_ID: {d['ONT_PROFILE_ID']}\nONT_MOMENTUM_PASSWORD: NO VALUE")
-                if st.button(f"🗑 Remove {d['device_name']}", key=f"remove_{i}"):
+                if st.button(f"🗑️ Remove {d['device_name']}", key=f"remove_{i}"):
                     st.session_state.devices.pop(i)
                     st.rerun()
 
-# 📦 Step 3: Export
-if st.session_state.devices and "df" in st.session_state:
-    with st.expander("📦 Step 3: Export and Download", expanded=True):
+# Step 3: Export
+if st.session_state.devices and st.session_state.df is not None:
+    with st.expander("📤 Step 3: Export and Download", expanded=True):
         st.session_state.company_name = st.text_input("Enter your company name", value=st.session_state.company_name).strip()
-        today_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{st.session_state.company_name}_{today_str}.csv"
+        now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{st.session_state.company_name}_{now}.csv" if st.session_state.company_name else f"export_{now}.csv"
 
-        desc_col = next((col for col in st.session_state.df.columns if 'description' in col.lower()), None)
-        fsan_col = next((col for col in st.session_state.df.columns if 'fsan' in col.lower()), None)
-        mac_col = next((col for col in st.session_state.df.columns if 'mac' in col.lower()), None)
-        sn_col = next((col for col in st.session_state.df.columns if 'serial' in col.lower() or col.lower() == 'sn'), None)
-
-        st.markdown("### Export Summary")
+        # Count records
+        desc_col = next((c for c in st.session_state.df.columns if "description" in c.lower()), None)
         if desc_col:
+            st.subheader("Device Summary")
             for d in st.session_state.devices:
                 count = st.session_state.df[desc_col].astype(str).str.contains(d["device_name"], case=False, na=False).sum()
-                st.markdown(f"- `{d['device_name']}` → {count} matching records")
+                st.markdown(f"- **{d['device_name']}** ({d['device_type']}): {count} record(s)")
 
-        export_btn = st.button("📤 Export & Download File")
-        if export_btn:
+        if st.button("📥 Export & Download File"):
+            mac_col = next((c for c in st.session_state.df.columns if "mac" in c.lower()), None)
+            sn_col = next((c for c in st.session_state.df.columns if "serial" in c.lower() or c.lower() == "sn"), None)
+            fsan_col = next((c for c in st.session_state.df.columns if "fsan" in c.lower()), None)
+
             output = io.StringIO()
             output.write("device_profile,device_name,device_numbers,inventory_location,inventory_status\n")
 
-            for device in st.session_state.devices:
-                matches = st.session_state.df[st.session_state.df[desc_col].astype(str).str.contains(device["device_name"], case=False, na=False)]
-                profile_type = f"CX_{device['device_type']}" if device['device_type'] != "ONT" else "ONT"
-                template = ""
-
-                if profile_type == "ONT":
-                    template = f"MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=NO VALUE|ONT_NODENAME=NO VALUE|ONT_PORT={device['ONT_PORT']}|ONT_PROFILE_ID={device['ONT_PROFILE_ID']}|ONT_MOMENTUM_PASSWORD={device['ONT_MOMENTUM_PASSWORD']}"
-                elif profile_type == "CX_ROUTER":
-                    template = "MAC=<<MAC>>|SN=<<SN>>|ROUTER_FSAN=<<FSAN>>"
-                elif profile_type == "CX_MESH":
-                    template = "MAC=<<MAC>>|SN=<<SN>>|MESH_FSAN=<<FSAN>>"
-                elif profile_type == "CX_SFP":
-                    template = "MAC=<<MAC>>|SN=<<SN>>|SIP_FSAN=<<FSAN>>"
-                elif profile_type == "GAM_COAX_ENDPOINT":
-                    template = "MAC=<<MAC>>|SN=<<SN>>"
-
-                for _, row in matches.iterrows():
+            for d in st.session_state.devices:
+                filtered = st.session_state.df[st.session_state.df[desc_col].astype(str).str.contains(d["device_name"], case=False, na=False)]
+                profile = f"CX_{d['device_type']}" if d["device_type"] != "ONT" else "ONT"
+                for _, row in filtered.iterrows():
                     mac = str(row.get(mac_col, "")).strip()
                     sn = str(row.get(sn_col, "")).strip()
                     fsan = str(row.get(fsan_col, "")).strip()
-                    formatted = template.replace("<<MAC>>", mac).replace("<<SN>>", sn).replace("<<FSAN>>", fsan)
-                    output.write(f"{profile_type},{device['device_name']},{formatted},{device['location']},UNASSIGNED\n")
+                    if not mac or not sn or not fsan:
+                        continue
+                    if profile == "ONT":
+                        numbers = f"MAC={mac}|SN={sn}|ONT_FSAN={fsan}|ONT_ID=NO VALUE|ONT_NODENAME=NO VALUE|ONT_PORT={d['ONT_PORT']}|ONT_PROFILE_ID={d['ONT_PROFILE_ID']}|ONT_MOMENTUM_PASSWORD=NO VALUE"
+                    else:
+                        suffix = {
+                            "CX_ROUTER": "ROUTER_FSAN",
+                            "CX_MESH": "MESH_FSAN",
+                            "CX_SFP": "SIP_FSAN",
+                            "GAM_COAX_ENDPOINT": ""
+                        }.get(profile, "")
+                        numbers = f"MAC={mac}|SN={sn}|{suffix}={fsan}" if suffix else f"MAC={mac}|SN={sn}"
+                    output.write(f"{profile},{d['device_name']},{numbers},{d['location']},UNASSIGNED\n")
 
-            st.download_button("⬇️ Download File", data=output.getvalue(), file_name=filename, mime="text/csv")
-            st.success("✅ File exported successfully!")
+            st.download_button("⬇️ Download Converted File", data=output.getvalue(), file_name=filename, mime="text/csv")
