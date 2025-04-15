@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 import io
 import re
-from mappings import device_profile_name_map
+from mappings import device_profile_name_map, device_numbers_template_map
 
 # --- Initialize session state ---
 if "devices" not in st.session_state:
@@ -14,6 +14,10 @@ if "df" not in st.session_state:
     st.session_state.df = None
 if "company_name" not in st.session_state:
     st.session_state.company_name = ""
+if "custom_ont_port" not in st.session_state:
+    st.session_state.custom_ont_port = ""
+if "custom_profile_id" not in st.session_state:
+    st.session_state.custom_profile_id = ""
 
 # --- Title and Help Section ---
 st.set_page_config(page_title="Calix Inventory Converter", layout="wide")
@@ -23,19 +27,14 @@ with st.expander("❓ How to Use This Tool", expanded=False):
     st.markdown("""
 This tool converts inventory files for import into your provisioning system.
 
-**Steps to Use:**
+**Steps:**
 1. Upload a `.csv` or `.xlsx` file.
-2. Select which row has your headers (e.g., MAC, Serial Number, Description).
-3. Identify devices in your file and map them as ONT, Router, SFP, etc.
-4. Customize ONT provisioning values if needed.
-5. Export your file in the correct format.
+2. Select the row that contains your column headers (MAC, Serial Number, FSAN, etc.).
+3. Identify devices to convert by model name, assign a device type, and set inventory location.
+4. For ONTs, ONT_PORT and ONT_PROFILE_ID must be provided or defaulted.
+5. Export the converted file. The file will be named `Company_YYYYMMDD_HHMMSS.csv`.
 
-**Important:**
-- ONT devices must have correct `ONT_PORT` and `ONT_PROFILE_ID` settings.
-- Custom locations must **exactly** match spelling/case in your system.
-- File names are saved locally and nothing is stored on the cloud.
-
-The final file will be named like: `Company_YYYYMMDD_HHMMSS.csv`
+⚠️ *Custom locations must match exactly what is used in Camvio.*
 """)
 
 # --- Reset Button ---
@@ -64,37 +63,51 @@ with st.expander("📁 Step 1: Upload File and Set Header Row", expanded=not st.
 # --- Step 2: Add Devices ---
 if st.session_state.header_confirmed:
     with st.expander("🛠️ Step 2: Add Devices to Convert", expanded=True):
-        with st.form("device_form", clear_on_submit=True):
-            device_name = st.text_input("Enter Device Model Name").upper().strip()
+        with st.form("device_form"):
+            device_name = st.text_input("Enter Device Model Name").strip().upper()
             device_type = st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"])
-            location_choice = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom"])
+            location_type = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom"])
             location = "WAREHOUSE"
-            if location_choice == "Custom":
+            if location_type == "Custom":
                 location = st.text_input("Enter Custom Location").strip()
                 st.warning("⚠️ Custom location must match Camvio EXACTLY (case-sensitive).")
 
-            mapped_type = device_profile_name_map.get(device_name)
-            if mapped_type:
-                mapped_type_clean = mapped_type.replace("CX_", "")
-                if mapped_type_clean != device_type:
-                    st.warning(f"⚠️ This device is typically mapped as `{mapped_type_clean}`. You selected `{device_type}`. Ensure your provisioning system is configured accordingly.")
-            else:
-                if device_type == "ONT":
-                    st.warning("🚧 This device isn't found in our standard list. If this is a new ONT, verify that your provisioning system supports it.")
+            # Device Lookup Button
+            if st.form_submit_button("🔍 Look Up Device"):
+                template = device_numbers_template_map.get(device_name.upper())
+                mapped_type = device_profile_name_map.get(device_name.upper())
+                if template and mapped_type:
+                    st.session_state.custom_ont_port = re.search(r"ONT_PORT=([^|]*)", template).group(1) if "ONT_PORT=" in template else ""
+                    st.session_state.custom_profile_id = re.search(r"ONT_PROFILE_ID=([^|]*)", template).group(1).upper() if "ONT_PROFILE_ID=" in template else ""
+                else:
+                    st.warning("🔎 This device is not in the known mapping. Proceed carefully and verify your provisioning setup.")
+                    st.session_state.custom_ont_port = ""
+                    st.session_state.custom_profile_id = device_name.upper()
 
-            ont_port = st.text_input("ONT_PORT", value="") if device_type == "ONT" else ""
-            ont_profile = st.text_input("ONT_PROFILE_ID", value=device_name) if device_type == "ONT" else ""
+                if mapped_type:
+                    simple_type = mapped_type.replace("CX_", "")
+                    if simple_type != device_type:
+                        st.warning(f"⚠️ This device is typically mapped as `{simple_type}`. You selected `{device_type}`. Make sure your provisioning system supports this.")
+
+            # Show ONT fields only for ONT
+            ont_port = ""
+            ont_profile = ""
+            if device_type == "ONT":
+                ont_port = st.text_input("ONT_PORT", value=st.session_state.custom_ont_port)
+                ont_profile = st.text_input("ONT_PROFILE_ID", value=st.session_state.custom_profile_id.upper())
 
             if st.form_submit_button("➕ Add Device"):
                 st.session_state.devices.append({
                     "device_name": device_name,
                     "device_type": device_type,
                     "location": location,
-                    "ONT_PORT": ont_port,
-                    "ONT_PROFILE_ID": ont_profile
+                    "ONT_PORT": ont_port if device_type == "ONT" else "",
+                    "ONT_PROFILE_ID": ont_profile if device_type == "ONT" else ""
                 })
                 st.success(f"{device_name} added.")
+                st.rerun()
 
+        # Show device summary
         if st.session_state.devices:
             st.markdown("### ✅ Devices Selected")
             for idx, device in enumerate(st.session_state.devices):
@@ -105,8 +118,8 @@ if st.session_state.header_confirmed:
                     st.session_state.devices.pop(idx)
                     st.rerun()
 
-# --- Step 3: Export CSV ---
-if st.session_state.devices and "df" in st.session_state:
+# --- Step 3: Export ---
+if st.session_state.devices and st.session_state.df is not None:
     with st.expander("📦 Step 3: Export File", expanded=True):
         st.session_state.company_name = st.text_input("Company Name", value=st.session_state.company_name)
         now = datetime.now()
@@ -157,3 +170,4 @@ if st.session_state.devices and "df" in st.session_state:
                 output.write(f"{profile},{name},{device_numbers},{device['location']},UNASSIGNED\n")
 
         st.download_button("⬇️ Export & Download File", data=output.getvalue(), file_name=export_name, mime="text/csv")
+        st.success("✅ File is ready for download.")
