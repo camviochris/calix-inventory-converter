@@ -2,6 +2,7 @@
 
 device_profile_name_map = {
     'GS4220E': 'CX_ROUTER',
+    'GS2029E': 'CX_ROUTER',
     'GS4227E': 'CX_ROUTER',
     'GS5239E': 'CX_ROUTER',
     'GS2128XG': 'ONT',
@@ -37,6 +38,7 @@ device_numbers_template_map = {
     'GS4227E': 'MAC=<<MAC>>|SN=<<SN>>|ROUTER_FSAN=<<FSAN>>',
     'GS2128XG': 'MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GS4227|ONT_MOMENTUM_PASSWORD=no value',
     'GS2028E': 'MAC=<<MAC>>|SN=<<SN>>|ROUTER_FSAN=<<FSAN>>',
+    'GS2029E': 'MAC=<<MAC>>|SN=<<SN>>|ROUTER_FSAN=<<FSAN>>',
     'GM1028': 'MAC=<<MAC>>|SN=<<SN>>|MESH_FSAN=<<FSAN>>',
     'GM1028H': 'MAC=<<MAC>>|SN=<<SN>>|MESH_FSAN=<<FSAN>>',
     'GPR2032H': 'MAC=<<MAC>>|SN=<<SN>>|MESH_FSAN=<<FSAN>>',
