@@ -31,6 +31,7 @@ device_profile_name_map = {
     'SFP-XGS': 'CX_SFP',
     'SFP-GPON': 'CX_SFP',
     'GP1100G': 'ONT',
+    'GS5239XG' 'ONT'
 }
 
 device_numbers_template_map = {
@@ -57,6 +58,7 @@ device_numbers_template_map = {
     'GPR8802X': 'MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GPR8802X|ONT_MOMENTUM_PASSWORD=no value',
     'GP4200XH': 'MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=1|ONT_PROFILE_ID=GP4200XH|ONT_MOMENTUM_PASSWORD=no value',
     'GP4201X': 'MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=1|ONT_PROFILE_ID=GP4201X|ONT_MOMENTUM_PASSWORD=no value',
+    'GS5239XG': 'MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GS5239XG|ONT_MOMENTUM_PASSWORD=no value',
     'GS5229E': 'MAC=<<MAC>>|SN=<<SN>>|ROUTER_FSAN=<<FSAN>>',
     'GS4229E': 'MAC=<<MAC>>|SN=<<SN>>|ROUTER_FSAN=<<FSAN>>',
     'GS5239E': 'MAC=<<MAC>>|SN=<<SN>>|ROUTER_FSAN=<<FSAN>>',
