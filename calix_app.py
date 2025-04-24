@@ -79,6 +79,7 @@ if st.session_state.header_confirmed:
                 if template and mapped_type:
                     st.session_state.custom_ont_port = re.search(r"ONT_PORT=([^|]*)", template).group(1) if "ONT_PORT=" in template else ""
                     st.session_state.custom_profile_id = re.search(r"ONT_PROFILE_ID=([^|]*)", template).group(1).upper() if "ONT_PROFILE_ID=" in template else ""
+                    st.rerun()
                 else:
                     st.warning("🔎 This device is not in the known mapping. Proceed carefully and verify your provisioning setup.")
                     st.session_state.custom_ont_port = ""
