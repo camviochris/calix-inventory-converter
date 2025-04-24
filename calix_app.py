@@ -106,7 +106,7 @@ if st.session_state.header_confirmed:
                     "ONT_PORT": ont_port if device_type == "ONT" else "",
                     "ONT_PROFILE_ID": ont_profile if device_type == "ONT" else ""
                 })
-                st.success(f"{device_name} added.")
+                st.success(f"{camvio_item_name} added.")
                 st.rerun()
 
         # Show device summary
