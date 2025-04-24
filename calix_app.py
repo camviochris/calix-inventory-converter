@@ -145,6 +145,7 @@ if st.session_state.devices and st.session_state.df is not None:
 
         for device in st.session_state.devices:
             name = device["device_name"]
+            model = device["model_name"]
             dtype = device["device_type"]
             profile = device_profile_name_map.get(name.upper(), f"CX_{dtype}")
             fsan_label = fsan_label_map.get(profile, "FSAN")
