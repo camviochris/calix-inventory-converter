@@ -75,8 +75,8 @@ if st.session_state.header_confirmed:
 
             # Device Lookup Button
             if st.form_submit_button("🔍 Look Up Device"):
-                template = device_numbers_template_map.get(device_name.upper())
-                mapped_type = device_profile_name_map.get(device_name.upper())
+                template = device_numbers_template_map.get(camvio_item_name.upper())
+                mapped_type = device_profile_name_map.get(camvio_item_name.upper())
                 if template and mapped_type:
                     st.session_state.custom_ont_port = re.search(r"ONT_PORT=([^|]*)", template).group(1) if "ONT_PORT=" in template else ""
                     st.session_state.custom_profile_id = re.search(r"ONT_PROFILE_ID=([^|]*)", template).group(1).upper() if "ONT_PROFILE_ID=" in template else ""
