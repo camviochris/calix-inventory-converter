@@ -83,7 +83,7 @@ if st.session_state.header_confirmed:
                 else:
                     st.warning("🔎 This device is not in the known mapping. Proceed carefully and verify your provisioning setup.")
                     st.session_state.custom_ont_port = ""
-                    st.session_state.custom_profile_id = device_name.upper()
+                    st.session_state.custom_profile_id = camvio_item_name.upper()
 
                 if mapped_type:
                     simple_type = mapped_type.replace("CX_", "")
