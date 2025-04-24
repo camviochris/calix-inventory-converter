@@ -65,8 +65,8 @@ if st.session_state.header_confirmed:
     with st.expander("🛠️ Step 2: Add Devices to Convert", expanded=True):
         with st.form("device_form"):
             model_name = st.text_input("Enter Model Name (as found in import file)").strip().upper()
-camvio_item_name = st.text_input("Enter Camvio Item Name (e.g., GPR2022H-ONT)").strip().upper()
-        device_type = st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"])
+            camvio_item_name = st.text_input("Enter Camvio Item Name (e.g., GPR2022H-ONT)").strip().upper()
+            device_type = st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"])
             location_type = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom"])
             location = "WAREHOUSE"
             if location_type == "Custom":
