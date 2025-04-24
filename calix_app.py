@@ -21,7 +21,7 @@ if "custom_profile_id" not in st.session_state:
 
 # --- Title and Help Section ---
 st.set_page_config(page_title="Calix Inventory Converter", layout="wide")
-st.title("📥 Calix Inventory Converter")
+st.title("📅 Calix Inventory Converter")
 
 with st.expander("❓ How to Use This Tool", expanded=False):
     st.markdown("""
@@ -65,7 +65,7 @@ if st.session_state.header_confirmed:
     with st.expander("🛠️ Step 2: Add Devices to Convert", expanded=True):
         with st.form("device_form"):
             model_name = st.text_input("Enter Model Name (as found in import file)").strip().upper()
-            camvio_item_name = st.text_input("Enter Camvio Item Name (e.g., GPR2022H-ONT)").strip().upper()
+            camvio_item_name = st.selectbox("Select Camvio Item Name", options=sorted(device_profile_name_map.keys()))
             device_type = st.selectbox("What type of device is this?", ["ONT", "ROUTER", "MESH", "SFP", "ENDPOINT"])
             location_type = st.selectbox("Where should it be stored?", ["WAREHOUSE", "Custom"])
             location = "WAREHOUSE"
@@ -73,7 +73,6 @@ if st.session_state.header_confirmed:
                 location = st.text_input("Enter Custom Location").strip()
                 st.warning("⚠️ Custom location must match Camvio EXACTLY (case-sensitive).")
 
-            # Device Lookup Button
             if st.form_submit_button("🔍 Look Up Device"):
                 template = device_numbers_template_map.get(camvio_item_name.upper())
                 mapped_type = device_profile_name_map.get(camvio_item_name.upper())
@@ -90,7 +89,6 @@ if st.session_state.header_confirmed:
                     if simple_type != device_type:
                         st.warning(f"⚠️ This device is typically mapped as `{simple_type}`. You selected `{device_type}`. Make sure your provisioning system supports this.")
 
-            # Show ONT fields only for ONT
             ont_port = ""
             ont_profile = ""
             if device_type == "ONT":
@@ -109,7 +107,6 @@ if st.session_state.header_confirmed:
                 st.success(f"{camvio_item_name} added.")
                 st.rerun()
 
-        # Show device summary
         if st.session_state.devices:
             st.markdown("### ✅ Devices Selected")
             for idx, device in enumerate(st.session_state.devices):
@@ -151,7 +148,7 @@ if st.session_state.devices and st.session_state.df is not None:
             fsan_label = fsan_label_map.get(profile, "FSAN")
 
             matches = st.session_state.df[
-                st.session_state.df[desc_col].astype(str).str.contains(name, case=False, na=False)
+                st.session_state.df[desc_col].astype(str).str.contains(model, case=False, na=False)
             ]
 
             for _, row in matches.iterrows():
