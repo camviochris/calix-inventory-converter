@@ -67,5 +67,5 @@ device_numbers_template_map = {
     'G1001-C': 'MAC=<<MAC>>|SN=<<SN>>',
     'SFP-XGS': 'MAC=<<MAC>>|SN=<<SN>>|SIP_FSAN=<<FSAN>>',
     'SFP-GPON': 'MAC=<<MAC>>|SN=<<SN>>|SIP_FSAN=<<FSAN>>',
-    'GP1100G': 'MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=x1|ONT_PROFILE_ID=GP1100G|ONT_MOMENTUM_PASSWORD=no value',
+    'GP1100G': 'ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GP1100G|ONT_MOMENTUM_PASSWORD=no value',
 }
