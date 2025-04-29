@@ -73,6 +73,9 @@ if st.session_state.header_confirmed:
                 location = st.text_input("Enter Custom Location").strip()
                 st.warning("⚠️ Custom location must match Camvio EXACTLY (case-sensitive).")
 
+            # Checkbox to exclude MAC and SN
+            exclude_mac_sn = st.checkbox("Check to exclude MAC & SN from device_numbers output.")
+
             if st.form_submit_button("🔍 Look Up Device"):
                 template = device_numbers_template_map.get(camvio_item_name.upper())
                 mapped_type = device_profile_name_map.get(camvio_item_name.upper())
@@ -103,7 +106,8 @@ if st.session_state.header_confirmed:
                     "device_type": device_type,
                     "location": location,
                     "ONT_PORT": ont_port if device_type == "ONT" else "",
-                    "ONT_PROFILE_ID": ont_profile if device_type == "ONT" else ""
+                    "ONT_PROFILE_ID": ont_profile if device_type == "ONT" else "",
+                    "exclude_mac_sn": exclude_mac_sn  # Save the checkbox result
                 })
                 st.success(f"{camvio_item_name} added.")
                 st.rerun()
@@ -114,6 +118,8 @@ if st.session_state.header_confirmed:
                 st.markdown(f"**{device['device_name']}** ({device['device_type']}) → `{device['location']}`")
                 if device["device_type"] == "ONT":
                     st.code(f"ONT_PORT: {device['ONT_PORT']}\nONT_PROFILE_ID: {device['ONT_PROFILE_ID']}")
+                if device.get("exclude_mac_sn"):
+                    st.info("🚫 MAC & SN will be excluded from output for this device.")
                 if st.button("🗑️ Remove", key=f"remove_{idx}"):
                     st.session_state.devices.pop(idx)
                     st.rerun()
@@ -148,6 +154,10 @@ if st.session_state.devices and st.session_state.df is not None:
             profile = device_profile_name_map.get(name.upper(), f"CX_{dtype}")
             fsan_label = fsan_label_map.get(profile, "FSAN")
 
+            # Key: if user excluded MAC/SN, grab _ALT mapping
+            template_key = f"{name}_ALT" if device.get("exclude_mac_sn") else name
+            template = device_numbers_template_map.get(template_key.upper())
+
             matches = st.session_state.df[
                 st.session_state.df[desc_col].astype(str).str.contains(model, case=False, na=False)
             ]
@@ -157,14 +167,14 @@ if st.session_state.devices and st.session_state.df is not None:
                 sn = str(row.get(sn_col, "NO VALUE")).strip()
                 fsan = str(row.get(fsan_col, "NO VALUE")).strip()
 
-                if profile == "ONT":
+                if template:
                     device_numbers = (
-                        f"MAC={mac}|SN={sn}|ONT_FSAN={fsan}|ONT_ID=NO VALUE|"
-                        f"ONT_NODENAME=NO VALUE|ONT_PORT={device['ONT_PORT']}|"
-                        f"ONT_PROFILE_ID={device['ONT_PROFILE_ID']}|ONT_MOMENTUM_PASSWORD=NO VALUE"
+                        template.replace("<<MAC>>", mac)
+                                .replace("<<SN>>", sn)
+                                .replace("<<FSAN>>", fsan)
+                                .replace("<<ONT_PORT>>", device.get("ONT_PORT", ""))
+                                .replace("<<ONT_PROFILE_ID>>", device.get("ONT_PROFILE_ID", ""))
                     )
-                elif profile == "GAM_COAX_ENDPOINT":
-                    device_numbers = f"MAC={mac}|SN={sn}"
                 else:
                     device_numbers = f"MAC={mac}|SN={sn}|{fsan_label}={fsan}"
 
