@@ -82,57 +82,57 @@ if st.session_state.header_confirmed:
                 location = st.text_input("Enter Custom Location").strip()
                 st.warning("⚠️ Custom location must match Camvio EXACTLY (case-sensitive).")
 
-    
-    # Checkbox to exclude MAC and SN
-    exclude_mac_sn = st.checkbox("Check to exclude MAC & SN from device_numbers output.")
-    
-    if st.form_submit_button("🔍 Look Up Device"):
-    template = device_numbers_template_map.get(camvio_item_name.upper())
-    mapped_type = device_profile_name_map.get(camvio_item_name.upper())
-    if template and mapped_type:
-    st.session_state.custom_ont_port = re.search(r"ONT_PORT=([^|]*)", template).group(1) if "ONT_PORT=" in template else ""
-    st.session_state.custom_profile_id = re.search(r"ONT_PROFILE_ID=([^|]*)", template).group(1).upper() if "ONT_PROFILE_ID=" in template else ""
-    st.rerun()
-    else:
-    st.warning("🔎 This device is not in the known mapping. Proceed carefully and verify your provisioning setup.")
-    st.session_state.custom_ont_port = ""
-    st.session_state.custom_profile_id = camvio_item_name.upper()
-    
-    if mapped_type:
-    simple_type = mapped_type.replace("CX_", "")
-    if simple_type != device_type:
-    st.warning(f"⚠️ This device is typically mapped as `{simple_type}`. You selected `{device_type}`. Make sure your provisioning system supports this.")
-    
-    ont_port = ""
-    ont_profile = ""
-    if device_type == "ONT":
-    ont_port = st.text_input("ONT_PORT", value=st.session_state.custom_ont_port)
-    ont_profile = st.text_input("ONT_PROFILE_ID", value=st.session_state.custom_profile_id.upper())
-    
-    if st.form_submit_button("➕ Add Device"):
-    st.session_state.devices.append({
-    "model_name": model_name,
-    "device_name": camvio_item_name,
-    "device_type": device_type,
-    "location": location,
-    "ONT_PORT": ont_port if device_type == "ONT" else "",
-    "ONT_PROFILE_ID": ont_profile if device_type == "ONT" else "",
-    "exclude_mac_sn": exclude_mac_sn  # Save the checkbox result
-    })
-    st.success(f"{camvio_item_name} added.")
-    st.rerun()
-    
+            # Checkbox to exclude MAC and SN
+            exclude_mac_sn = st.checkbox("Check to exclude MAC & SN from device_numbers output.")
+
+            if st.form_submit_button("🔍 Look Up Device"):
+                template = device_numbers_template_map.get(camvio_item_name.upper())
+                mapped_type = device_profile_name_map.get(camvio_item_name.upper())
+
+                if template and mapped_type:
+                    st.session_state.custom_ont_port = re.search(r"ONT_PORT=([^|]*)", template).group(1) if "ONT_PORT=" in template else ""
+                    st.session_state.custom_profile_id = re.search(r"ONT_PROFILE_ID=([^|]*)", template).group(1).upper() if "ONT_PROFILE_ID=" in template else ""
+                    st.rerun()
+                else:
+                    st.warning("🔎 This device is not in the known mapping. Proceed carefully and verify your provisioning setup.")
+                    st.session_state.custom_ont_port = ""
+                    st.session_state.custom_profile_id = camvio_item_name.upper()
+
+                if mapped_type:
+                    simple_type = mapped_type.replace("CX_", "")
+                    if simple_type != device_type:
+                        st.warning(f"⚠️ This device is typically mapped as `{simple_type}`. You selected `{device_type}`. Make sure your provisioning system supports this.")
+
+            ont_port = ""
+            ont_profile = ""
+            if device_type == "ONT":
+                ont_port = st.text_input("ONT_PORT", value=st.session_state.custom_ont_port)
+                ont_profile = st.text_input("ONT_PROFILE_ID", value=st.session_state.custom_profile_id.upper())
+
+            if st.form_submit_button("➕ Add Device"):
+                st.session_state.devices.append({
+                    "model_name": model_name,
+                    "device_name": camvio_item_name,
+                    "device_type": device_type,
+                    "location": location,
+                    "ONT_PORT": ont_port if device_type == "ONT" else "",
+                    "ONT_PROFILE_ID": ont_profile if device_type == "ONT" else "",
+                    "exclude_mac_sn": exclude_mac_sn
+                })
+                st.success(f"{camvio_item_name} added.")
+                st.rerun()
+
     if st.session_state.devices:
-    st.markdown("### ✅ Devices Selected")
-    for idx, device in enumerate(st.session_state.devices):
-    st.markdown(f"**{device['device_name']}** ({device['device_type']}) → `{device['location']}`")
-    if device["device_type"] == "ONT":
-    st.code(f"ONT_PORT: {device['ONT_PORT']}\nONT_PROFILE_ID: {device['ONT_PROFILE_ID']}")
-    if device.get("exclude_mac_sn"):
-    st.info("🚫 MAC & SN will be excluded from output for this device.")
-    if st.button("🗑️ Remove", key=f"remove_{idx}"):
-    st.session_state.devices.pop(idx)
-    st.rerun()
+        st.markdown("### ✅ Devices Selected")
+        for idx, device in enumerate(st.session_state.devices):
+            st.markdown(f"**{device['device_name']}** ({device['device_type']}) → `{device['location']}`")
+            if device["device_type"] == "ONT":
+                st.code(f"ONT_PORT: {device['ONT_PORT']}\nONT_PROFILE_ID: {device['ONT_PROFILE_ID']}")
+            if device.get("exclude_mac_sn"):
+                st.info("🚫 MAC & SN will be excluded from output for this device.")
+            if st.button("🗑️ Remove", key=f"remove_{idx}"):
+                st.session_state.devices.pop(idx)
+                st.rerun()
     
 # --- Step 3: Export ---
 if st.session_state.devices and st.session_state.df is not None:
