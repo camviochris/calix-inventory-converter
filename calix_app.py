@@ -62,6 +62,15 @@ with st.expander("📁 Step 1: Upload File and Set Header Row", expanded=not st.
 
 # --- Step 2: Add Devices ---
 if st.session_state.header_confirmed:
+        desc_col = next((col for col in st.session_state.df.columns if 'description' in col.lower()), None)
+        mac_col = next((col for col in st.session_state.df.columns if 'mac' in col.lower()), None)
+        sn_col = next((col for col in st.session_state.df.columns if 'serial' in col.lower() or col.lower() == 'sn'), None)
+        fsan_col = next((col for col in st.session_state.df.columns if 'fsan' in col.lower()), None)
+
+        if not desc_col:
+            st.error("❌ Could not detect a 'Description' column. Please verify your header row selection.")
+            st.stop()
+
     with st.expander("🛠️ Step 2: Add Devices to Convert", expanded=True):
         with st.form("device_form"):
             model_name = st.text_input("Enter Model Name (as found in import file)").strip().upper()
@@ -132,10 +141,6 @@ if st.session_state.devices and st.session_state.df is not None:
         timestamp = now.strftime("%Y%m%d_%H%M%S")
         export_name = f"{st.session_state.company_name}_{timestamp}.csv" if st.session_state.company_name else f"inventory_export_{timestamp}.csv"
 
-        desc_col = next((col for col in st.session_state.df.columns if 'description' in col.lower()), None)
-        mac_col = next((col for col in st.session_state.df.columns if 'mac' in col.lower()), None)
-        sn_col = next((col for col in st.session_state.df.columns if 'serial' in col.lower() or col.lower() == 'sn'), None)
-        fsan_col = next((col for col in st.session_state.df.columns if 'fsan' in col.lower()), None)
 
         fsan_label_map = {
             "ONT": "ONT_FSAN",
