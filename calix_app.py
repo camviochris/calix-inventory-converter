@@ -5,7 +5,7 @@ import io
 import re
 from mappings import device_profile_name_map, device_numbers_template_map
 
-# --- Initialize session state ---
+# --- Initialize ses sion state ---
 if "devices" not in st.session_state:
     st.session_state.devices = []
 if "header_confirmed" not in st.session_state:
