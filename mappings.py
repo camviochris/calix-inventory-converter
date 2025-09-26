@@ -33,7 +33,7 @@ device_profile_name_map = {
     'GP1100G': 'ONT',
     'GS5239XG': 'ONT',
     'GPR2022H-ONT': 'ONT',
-    'GPR1027E': 'CX_ROUTER',
+    'GPR1027E': 'CX_MESH',
 }
 
 device_numbers_template_map = {
