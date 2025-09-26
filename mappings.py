@@ -33,6 +33,7 @@ device_profile_name_map = {
     'GP1100G': 'ONT',
     'GS5239XG': 'ONT',
     'GPR2022H-ONT': 'ONT',
+    'GPR1027E': 'CX_ROUTER',
 }
 
 device_numbers_template_map = {
@@ -51,6 +52,7 @@ device_numbers_template_map = {
     'SFP-GPON': 'MAC=<<MAC>>|SN=<<SN>>|SIP_FSAN=<<FSAN>>',
     'GS5229E': 'MAC=<<MAC>>|SN=<<SN>>|ROUTER_FSAN=<<FSAN>>',
     'GS4229E': 'MAC=<<MAC>>|SN=<<SN>>|ROUTER_FSAN=<<FSAN>>',
+    'GPR1027E': 'MAC=<<MAC>>|SN=<<SN>>|ROUTER_FSAN=<<FSAN>>',
 
     # --- ONTs (with _ALT versions) ---
     'GS2128XG': 'MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GS4227|ONT_MOMENTUM_PASSWORD=no value',
