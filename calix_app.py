@@ -58,6 +58,8 @@ def build_devices_from_descriptions(df: pd.DataFrame, desc_col: str):
     """
     Scan the description column, find all known models from mappings.py, and
     return a list of device dicts with counts and default ONT fields.
+
+    Uses regex "word-ish" boundaries so 'GM1028' does NOT match 'GM1028H'.
     """
     devices = []
     desc_series = df[desc_col].astype(str)
@@ -69,14 +71,21 @@ def build_devices_from_descriptions(df: pd.DataFrame, desc_col: str):
 
         pattern = str(device_name)
 
-        mask = desc_series.str.contains(pattern, case=False, na=False)
+        # Word-ish boundary: no letter/number immediately before or after
+        pattern_regex = rf"(?<![A-Za-z0-9]){re.escape(pattern)}(?![A-Za-z0-9])"
+
+        mask = desc_series.str.contains(
+            pattern_regex, case=False, na=False, regex=True
+        )
         count = int(mask.sum())
         if count == 0:
             continue
 
         # Try to pull defaults for ONT_PORT / ONT_PROFILE_ID from the template
-        template = device_numbers_template_map.get(str(device_name), "") or \
-                   device_numbers_template_map.get(str(device_name).upper(), "")
+        template = (
+            device_numbers_template_map.get(str(device_name), "")
+            or device_numbers_template_map.get(str(device_name).upper(), "")
+        )
 
         ont_port = ""
         ont_profile_id = ""
@@ -107,6 +116,14 @@ def build_devices_from_descriptions(df: pd.DataFrame, desc_col: str):
     return devices
 
 
+def make_model_regex(model: str) -> str:
+    """
+    Build the same 'word-ish boundary' regex used in build_devices_from_descriptions,
+    so counts and export rows line up and we avoid GM1028 vs GM1028H double matches.
+    """
+    return rf"(?<![A-Za-z0-9]){re.escape(str(model))}(?![A-Za-z0-9])"
+
+
 # --- Session state -----------------------------------------------------------
 
 if "devices" not in st.session_state:
@@ -124,6 +141,9 @@ if "auto_devices_initialized" not in st.session_state:
 if "company_name" not in st.session_state:
     st.session_state.company_name = ""
 
+if "file_name" not in st.session_state:
+    st.session_state.file_name = ""
+
 
 # --- Page setup --------------------------------------------------------------
 
@@ -135,13 +155,13 @@ with st.expander("❓ How to Use This Tool", expanded=False):
         """
 This tool converts ISP inventory exports into a Calix-ready import file.
 
-**Workflow (zero manual mapping):**
+**Workflow:**
 1. Upload a `.csv` or `.xlsx` file.
 2. The app automatically detects the header row (Item Description / FSAN).
 3. It scans *Item Description* using `mappings.py` to find all known devices.
 4. It shows each **unique device** found, the **device type**, and **record count**.
 5. For ONTs, you can tweak **ONT_PORT** and **ONT_PROFILE_ID** per run.
-6. Export a Calix-ready CSV.
+6. Export a Calix-ready CSV and see total exported record count.
         """
     )
 
@@ -152,7 +172,8 @@ if st.button("🔄 Reset All"):
     st.session_state.header_confirmed = False
     st.session_state.df = None
     st.session_state.auto_devices_initialized = False
-    st.experimental_rerun()
+    st.session_state.file_name = ""
+    st.rerun()
 
 # Optional company name just for file naming
 st.text_input(
@@ -189,12 +210,13 @@ with st.expander(
         st.session_state.df = df
         st.session_state.header_confirmed = True
         st.session_state.auto_devices_initialized = False
+        st.session_state.file_name = file.name
 
         st.success(f"✅ Header row auto-detected at raw row index {header_row_idx}.")
         st.write("🧾 **Detected columns:**")
         st.write(list(df.columns))
 
-        st.experimental_rerun()
+        st.rerun()
 
 
 # --- Step 2: Auto-detect devices from Item Description -----------------------
@@ -212,8 +234,11 @@ if st.session_state.header_confirmed and st.session_state.df is not None:
         None,
     )
     sn_col = next(
-        (col for col in df.columns
-         if "serial" in str(col).lower() or str(col).lower() == "sn"),
+        (
+            col
+            for col in df.columns
+            if "serial" in str(col).lower() or str(col).lower() == "sn"
+        ),
         None,
     )
     fsan_col = next(
@@ -239,6 +264,22 @@ if st.session_state.header_confirmed and st.session_state.df is not None:
         st.session_state.devices = build_devices_from_descriptions(df, desc_col)
         st.session_state.auto_devices_initialized = True
 
+    # --- Summary at the top so you can compare counts ------------------------
+    total_rows = len(df)
+    sum_device_counts = sum(d.get("count", 0) for d in st.session_state.devices)
+
+    st.markdown("### 📊 File & Record Summary")
+    st.markdown(
+        f"- **File name:** `{st.session_state.file_name or 'N/A'}`  \n"
+        f"- **Total rows detected (excluding header):** **{total_rows}**  \n"
+        f"- **Sum of device record counts (from Item Description):** **{sum_device_counts}**"
+    )
+    st.caption(
+        "If these don't match, either some rows don't match any known device, "
+        "or descriptions contain patterns that don't align with `mappings.py`."
+    )
+
+    # --- Devices list --------------------------------------------------------
     st.markdown("### 🔍 Step 2: Devices found from Item Description")
 
     if not st.session_state.devices:
@@ -246,6 +287,7 @@ if st.session_state.header_confirmed and st.session_state.df is not None:
             "No known devices from `mappings.py` were found in the Item Description column."
         )
     else:
+        # iterate over a copy of the list so removals don't mess up the loop
         for idx, device in enumerate(list(st.session_state.devices)):
             st.markdown(
                 f"**{device['device_name']}** "
@@ -274,7 +316,7 @@ if st.session_state.header_confirmed and st.session_state.df is not None:
             # Optional remove
             if st.button("🗑️ Remove", key=f"remove_{idx}"):
                 st.session_state.devices.pop(idx)
-                st.experimental_rerun()
+                st.rerun()
 
 
 # --- Step 3: Export ----------------------------------------------------------
@@ -297,8 +339,11 @@ if st.session_state.header_confirmed and st.session_state.df is not None:
             None,
         )
         sn_col = next(
-            (col for col in df.columns
-             if "serial" in str(col).lower() or str(col).lower() == "sn"),
+            (
+                col
+                for col in df.columns
+                if "serial" in str(col).lower() or str(col).lower() == "sn"
+            ),
             None,
         )
         fsan_col = next(
@@ -355,8 +400,12 @@ if st.session_state.header_confirmed and st.session_state.df is not None:
                 or device_numbers_template_map.get(str(template_key).upper(), "")
             )
 
+            pattern_regex = make_model_regex(model)
+
             matches = df[
-                df[desc_col].astype(str).str.contains(model, case=False, na=False)
+                df[desc_col]
+                .astype(str)
+                .str.contains(pattern_regex, case=False, na=False, regex=True)
             ]
 
             for _, row in matches.iterrows():
