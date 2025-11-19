@@ -105,7 +105,7 @@ def build_devices_from_descriptions(df: pd.DataFrame, desc_col: str):
                 "model_name": pattern,  # used to match Item Description
                 "device_name": device_name,
                 "device_type": device_profile_to_type(profile),
-                "location": "WAREHOUSE",
+                "location": "WAREHOUSE",       # default; editable in UI
                 "ONT_PORT": ont_port,
                 "ONT_PROFILE_ID": ont_profile_id,
                 "exclude_mac_sn": False,
@@ -161,7 +161,8 @@ This tool converts ISP inventory exports into a Calix-ready import file.
 3. It scans *Item Description* using `mappings.py` to find all known devices.
 4. It shows each **unique device** found, the **device type**, and **record count**.
 5. For ONTs, you can tweak **ONT_PORT** and **ONT_PROFILE_ID** per run.
-6. Export a Calix-ready CSV and see total exported record count.
+6. You can also set **inventory location per device** (default: WAREHOUSE).
+7. Export a Calix-ready CSV and see total exported record count.
         """
     )
 
@@ -293,6 +294,14 @@ if st.session_state.header_confirmed and st.session_state.df is not None:
                 f"**{device['device_name']}** "
                 f"({device['device_type']}) – **{device['count']}** matching records"
             )
+
+            # Per-device inventory location (default WAREHOUSE)
+            loc_input = st.text_input(
+                f"Inventory location for {device['device_name']}",
+                value=device.get("location", "WAREHOUSE") or "WAREHOUSE",
+                key=f"loc_{idx}",
+            )
+            st.session_state.devices[idx]["location"] = loc_input.strip() or "WAREHOUSE"
 
             # For ONTs allow editing ONT_PORT and ONT_PROFILE_ID per device
             if device["device_type"] == "ONT":
@@ -435,6 +444,23 @@ if st.session_state.header_confirmed and st.session_state.df is not None:
                     if fsan:
                         parts.append(f"{fsan_label}={fsan}")
                     device_numbers = "|".join(parts)
+
+                # 🔧 Override ONT_PORT / ONT_PROFILE_ID literals for ONTs,
+                # so UI edits actually change the output even if the template
+                # hardcodes those values.
+                if dtype == "ONT":
+                    if device.get("ONT_PORT"):
+                        device_numbers = re.sub(
+                            r"ONT_PORT=[^|]*",
+                            f"ONT_PORT={device['ONT_PORT']}",
+                            device_numbers,
+                        )
+                    if device.get("ONT_PROFILE_ID"):
+                        device_numbers = re.sub(
+                            r"ONT_PROFILE_ID=[^|]*",
+                            f"ONT_PROFILE_ID={device['ONT_PROFILE_ID']}",
+                            device_numbers,
+                        )
 
                 output.write(
                     f"{profile},{name},{device_numbers},{device['location']},UNASSIGNED\n"
