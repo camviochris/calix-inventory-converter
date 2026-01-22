@@ -5,6 +5,7 @@ device_profile_name_map = {
     'GS2029E': 'CX_ROUTER',
     'GS4227E': 'CX_ROUTER',
     'GS5239E': 'CX_ROUTER',
+    'GS5239XG': 'CX_ONT',
     'GS2128XG': 'ONT',
     'GS2028E': 'CX_ROUTER',
     'GM1028': 'CX_MESH',
@@ -12,6 +13,7 @@ device_profile_name_map = {
     'GPR2032H': 'CX_MESH',
     'XGS': 'CX_MESH',
     'GM2037': 'CX_MESH',
+    'GM2038': 'CX_MESH',
     'GS4227W': 'ONT',
     'GS4227': 'ONT',
     '803G': 'ONT',
@@ -48,6 +50,7 @@ device_numbers_template_map = {
     'GPR2032H': 'MAC=<<MAC>>|SN=<<SN>>|MESH_FSAN=<<FSAN>>',
     'XGS': 'MAC=<<MAC>>|SN=<<SN>>|MESH_FSAN=<<FSAN>>',
     'GM2037': 'MAC=<<MAC>>|SN=<<SN>>|MESH_FSAN=<<FSAN>>',
+    'GM2037': 'MAC=<<MAC>>|SN=<<SN>>|MESH_FSAN=<<FSAN>>',
     'G1001-C': 'MAC=<<MAC>>|SN=<<SN>>',
     'SFP-XGS': 'MAC=<<MAC>>|SN=<<SN>>|SIP_FSAN=<<FSAN>>',
     'SFP-GPON': 'MAC=<<MAC>>|SN=<<SN>>|SIP_FSAN=<<FSAN>>',
@@ -56,6 +59,9 @@ device_numbers_template_map = {
     'GPR1027E': 'MAC=<<MAC>>|SN=<<SN>>|MESH_FSAN=<<FSAN>>',
 
     # --- ONTs (with _ALT versions) ---
+    'GS5239XG': 'MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GS5239XG|ONT_MOMENTUM_PASSWORD=no value',
+    'GS5239XG_ALT': 'ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GS5239XG|ONT_MOMENTUM_PASSWORD=no value',
+
     'GS2128XG': 'MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GS4227|ONT_MOMENTUM_PASSWORD=no value',
     'GS2128XG_ALT': 'ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GS4227|ONT_MOMENTUM_PASSWORD=no value',
 
