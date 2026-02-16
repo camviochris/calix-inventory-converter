@@ -36,6 +36,7 @@ device_profile_name_map = {
     'GP1100G': 'ONT',
     'GS5239XG': 'ONT',
     'GPR2022H-ONT': 'ONT',
+    'GPR2022H': 'ONT',   # Alias so plain GPR2022H descriptions are detected
     'GPR1027E': 'CX_MESH',
 }
 
@@ -115,4 +116,8 @@ device_numbers_template_map = {
 
     'GPR2022H-ONT': 'MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GPR2022H|ONT_MOMENTUM_PASSWORD=no value',
     'GPR2022H-ONT_ALT': 'ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GPR2022H|ONT_MOMENTUM_PASSWORD=no value',
+
+    'GPR2022H': 'MAC=<<MAC>>|SN=<<SN>>|ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GPR2022H|ONT_MOMENTUM_PASSWORD=no value',
+    'GPR2022H_ALT': 'ONT_FSAN=<<FSAN>>|ONT_ID=no value|ONT_NODENAME=no value|ONT_PORT=G1|ONT_PROFILE_ID=GPR2022H|ONT_MOMENTUM_PASSWORD=no value',
+
 }
