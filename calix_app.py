@@ -72,7 +72,7 @@ def build_devices_from_descriptions(df: pd.DataFrame, desc_col: str):
         pattern = str(device_name)
 
         # Word-ish boundary: no letter/number immediately before or after
-        pattern_regex = rf"(?<![A-Za-z0-9]){re.escape(pattern)}(?![A-Za-z0-9])"
+        pattern_regex = rf"(?<![A-Za-z0-9-]){re.escape(pattern)}(?![A-Za-z0-9-])"
 
         mask = desc_series.str.contains(
             pattern_regex, case=False, na=False, regex=True
@@ -121,7 +121,7 @@ def make_model_regex(model: str) -> str:
     Build the same 'word-ish boundary' regex used in build_devices_from_descriptions,
     so counts and export rows line up and we avoid GM1028 vs GM1028H double matches.
     """
-    return rf"(?<![A-Za-z0-9]){re.escape(str(model))}(?![A-Za-z0-9])"
+    return rf"(?<![A-Za-z0-9-]){re.escape(str(model))}(?![A-Za-z0-9-])"
 
 
 # --- Session state -----------------------------------------------------------
